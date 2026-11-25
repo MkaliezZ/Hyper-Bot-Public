@@ -1,0 +1,12 @@
+node_modules/
+dist/
+release/
+.hyper-bot/
+*.db
+*.db-shm
+*.db-wal
+*.log
+.env
+test-results/
+__pycache__/
+

@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "packages": [
+    {
+      "package": "@earendil-works/pi-ai",
+      "version": "1.6.0",
+      "integrity": "sha512-9hL+eygFDEiFp//cydeUfmFsKmEqpmvsNPb10Y1W8+m5K9O+sx1hMStfu6nukrBD5sl6mP4RykCYBBNEgsVLfw==",
+      "commit": "faac585884ae2c013a6b1400f3e9e77f10b34bac",
+      "verifiedBy": "official tag and exact source package.json",
+      "files": [
+        {
+          "path": "pi-1.6.0-LICENSE",
+          "source": "https://raw.githubusercontent.com/earendil-works/pi/faac585884ae2c013a6b1400f3e9e77f10b34bac/LICENSE",
+          "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+        }
+      ]
+    },
+    {
+      "package": "@earendil-works/pi-schema",
+      "version": "1.6.0",
+      "integrity": "sha512-jD0VRCUcFzWQ5zN82pOuoHNN42/3pu4E5krtpiKknvPq4g2m+fuO38lj+xnZhuVpYcd2G0qlmr8lE6ZMzkad7Q==",
+      "commit": "faac585884ae2c013a6b1400f3e9e77f10b34bac",
+      "verifiedBy": "official tag and exact source package.json",
+      "files": [
+        {
+          "path": "pi-1.6.0-LICENSE",
+          "source": "https://raw.githubusercontent.com/earendil-works/pi/faac585884ae2c013a6b1400f3e9e77f10b34bac/LICENSE",
+          "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+        }
+      ]
+    },
+    {
+      "package": "@earendil-works/pi-telemetry",
+      "version": "1.6.0",
+      "integrity": "sha512-MNL0TvtpgoSfX7mBLSVgzxTW6yvT8VLEpHvbWnZsIp92FtqVvx+4q9DxWZdX8KvcQqBs0GseAgVnLdVFinjN9Q==",
+      "commit": "faac585884ae2c013a6b1400f3e9e77f10b34bac",
+      "verifiedBy": "official tag and exact source package.json",
+      "files": [
+        {
+          "path": "pi-1.6.0-LICENSE",
+          "source": "https://raw.githubusercontent.com/earendil-works/pi/faac585884ae2c013a6b1400f3e9e77f10b34bac/LICENSE",
+          "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+        }
+      ]
+    },
+    {
+      "package": "@xterm/addon-serialize",
+      "version": "0.14.0",
+      "integrity": "sha512-uteyTU1EkrQa2Ux6P/uFl2fzmXI46jy5uoQMKEOM0fKTyiW7cSn0WrFenHm5vO5uEXX/GpwW/FgILvv3r0WbkA==",
+      "commit": "f447274f430fd22513f6adbf9862d19524471c04",
+      "verifiedBy": "npm gitHead matches locked tarball",
+      "files": [
+        {
+          "path": "xterm-f447274-LICENSE",
+          "source": "https://raw.githubusercontent.com/xtermjs/xterm.js/f447274f430fd22513f6adbf9862d19524471c04/LICENSE",
+          "sha256": "b569f629d00f2626a8100df2a1798210535621e42164dfd426a6fe5aac7b0ccd"
+        }
+      ]
+    },
+    {
+      "package": "@xterm/headless",
+      "version": "6.0.0",
+      "integrity": "sha512-5Yj1QINYCyzrZtf8OFIHi47iQtI+0qYFPHmouEfG8dHNxbZ9Tb9YGSuLcsEwj9Z+OL75GJqPyJbyoFer80a2Hw==",
+      "commit": "f447274f430fd22513f6adbf9862d19524471c04",
+      "verifiedBy": "npm gitHead matches locked tarball",
+      "files": [
+        {
+          "path": "xterm-f447274-LICENSE",
+          "source": "https://raw.githubusercontent.com/xtermjs/xterm.js/f447274f430fd22513f6adbf9862d19524471c04/LICENSE",
+          "sha256": "b569f629d00f2626a8100df2a1798210535621e42164dfd426a6fe5aac7b0ccd"
+        }
+      ]
+    },
+    {
+      "package": "saxes",
+      "version": "6.0.0",
+      "integrity": "sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==",
+      "commit": "211fa0ebec9b628affc09219199639887174bfc3",
+      "verifiedBy": "npm gitHead matches locked tarball",
+      "files": [
+        {
+          "path": "saxes-6.0.0-LICENSE",
+          "source": "https://raw.githubusercontent.com/lddubeau/saxes/211fa0ebec9b628affc09219199639887174bfc3/LICENSE",
+          "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e"
+        }
+      ]
+    },
+    {
+      "package": "@koromix/koffi-win32-x64",
+      "version": "3.1.1",
+      "integrity": "sha512-KqHPmvj6QILhNyI/To8QSihHsijeVGIYYPBOUnXEpcnH2LuLbargY4Hd6dDeTN3Z90uUUxN+1FWz1UnhVzFOiA==",
+      "commit": "31d8e3b36e59b00bd762cc067edd1a6874341c28",
+      "verifiedBy": "official Koffi tag, native binary named in the exact parent package, source notices match the parent's npm files",
+      "files": [
+        {
+          "path": "koffi-3.1.1-LICENSE.txt",
+          "source": "https://codeberg.org/Koromix/rygel/raw/commit/31d8e3b36e59b00bd762cc067edd1a6874341c28/src/koffi/LICENSE.txt",
+          "sha256": "22bcbbbacd739b026a8dc484f62a31484ce4c4e31f3408b60b29b4e41d62b290"
+        },
+        {
+          "path": "koffi-3.1.1-node-addon-api-LICENSE.md",
+          "source": "https://codeberg.org/Koromix/rygel/raw/commit/31d8e3b36e59b00bd762cc067edd1a6874341c28/vendor/node-addon-api/LICENSE.md",
+          "sha256": "89024017b88a9f2b763f79b941a4f2db3b4428edfcacdc0b23866b2da633ad0c"
+        },
+        {
+          "path": "koffi-3.1.1-node-api-headers-LICENSE",
+          "source": "https://codeberg.org/Koromix/rygel/raw/commit/31d8e3b36e59b00bd762cc067edd1a6874341c28/vendor/node-api-headers/LICENSE",
+          "sha256": "a553508f516031c91f3af1148d44970cb81bbae6c4f091be6835d39cc252238c"
+        }
+      ]
+    }
+  ]
+}
