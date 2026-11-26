@@ -9,6 +9,8 @@ import { History, Library } from './history.jsx';
 import { Recovery } from './recovery.jsx';
 import { WorkspaceNav } from './workspace-nav.jsx';
 import { WorkspaceMemory } from './workspace-memory.jsx';
+import { TeachingConversation } from './teaching-conversation.jsx';
+import { TeachingAssistant } from './teaching-assistant.jsx';
 import './theme.css';
 
 import { ActiveRunLink } from './components.jsx';
@@ -225,9 +227,12 @@ function App() {
         {active&&active.conversation!==roomId&&<div className="chat-run-bar">
           <span title={owner}>{owner||'当前任务'}</span><ActiveRunLink run={active} owner={owner}/>
         </div>}
-        <Chat key={roomId} room={room} bot={bot} workspace={workspace} drafts={drafts} navButton={navButton} refresh={refresh} notify={setToast}
+        {bot.kind==='teaching'?(bot.target==='bot'&&bot.trial
+          ?<TeachingAssistant key={roomId} room={room} bot={bot} workspace={workspace} navButton={navButton} online={online} refresh={refresh}/>
+          :<TeachingConversation key={roomId} room={room} bot={bot} navButton={navButton}/>)
+        :<Chat key={roomId} room={room} bot={bot} workspace={workspace} drafts={drafts} navButton={navButton} refresh={refresh} notify={setToast}
           onNew={beginConversation}
-          requestedArtifact={requestedArtifact} requestedMaterial={requestedMaterial} requestedRun={requestedRun} online={online}/>
+          requestedArtifact={requestedArtifact} requestedMaterial={requestedMaterial} requestedRun={requestedRun} online={online}/>}
       </>
         : <main className="route-page">
           <header className="page-bar">{navButton}<span className="page-bar-label" title={workspace?.workspace.name}>{workspace?.workspace.name}</span>

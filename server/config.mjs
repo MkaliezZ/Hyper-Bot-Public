@@ -1,6 +1,6 @@
 import { homedir, tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
-import { lstat, readFile, realpath } from 'node:fs/promises';
+import { lstat, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
@@ -10,6 +10,11 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Problem } from './contracts.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const teachingRuntimeRoot=path.join(root,'teaching');
+const portableTeachingPython=path.join(teachingRuntimeRoot,'python','python.exe');
+export const teachingPythonHome=path.join(root,'.hyper-bot','teaching-python');
+export const teachingPythonExecutable=path.join(teachingPythonHome,process.platform==='win32'?'Scripts/python.exe':'bin/python');
+export const systemTeachingPython=process.platform==='win32'?'python':'python3';
 const exec = promisify(execFile);
 const require=createRequire(import.meta.url);
 export const WB_REVISION = '59589fc365e084de9b9bd0759714c07eaabd9b7b';
@@ -188,17 +193,41 @@ async function bundledDsh() {
   return {sdk,dshWeb};
 }
 
+export async function teachingInstallation(){
+  const settings=new URL('../.hyper-bot/teaching-installation.json',import.meta.url);
+  const external=process.env.HYPER_BOT_TEACHING_ROOT||(await readFile(settings,'utf8').then(JSON.parse).catch(()=>({}))).root;
+  const bundled=!external;
+  const directory=external||teachingRuntimeRoot;
+  try{
+    const file=path.join(directory,'package.json');
+    if(!(await stat(path.join(directory,'server/gateway.ts'))).isFile())throw new Error();
+    if(!bundled){
+      const pkg=JSON.parse(await readFile(file,'utf8'));
+      if(!['english-workbench-m0','english-teaching-workbench'].includes(pkg.name))throw new Error();
+    }
+    const req=createRequire(file);
+    for(const dep of ['tsx','fastify','@fastify/multipart','zod'])req.resolve(dep);
+  }catch{return issue('teaching_root',bundled?'内置教培组件不完整，请重新安装 Hyper Bot。':'请核对教培工作台安装目录、服务入口与 Node 依赖。');}
+  const exists=filename=>stat(filename).then(file=>file.isFile(),()=>false);
+  const portable=bundled&&process.platform==='win32'&&await exists(portableTeachingPython);
+  const installed=bundled&&!portable&&await exists(teachingPythonExecutable);
+  const python=portable?portableTeachingPython:process.env.M0_PYTHON||(installed?teachingPythonExecutable:systemTeachingPython);
+  const modules=['pymupdf','pptx','PIL','defusedxml',...(portable?['local_lesson','practice']:[])];
+  const lessons=await pythonAvailability(python,modules);
+  return {ok:true,root:directory,python,bundled,lessons};
+}
+
 export async function inspectDependencies(config) {
   const found=config.workbenchRoot?{}:await resolveInstallation();
   const workbenchRoot=config.workbenchRoot||found.root;
   const workbenchPython=config.workbenchRoot ? config.workbenchPython
     : process.env.HYPER_BOT_WORKBENCH_PYTHON||found.python||config.workbenchPython;
-  const [workbench,hermes,dsh]=await Promise.all([
+  const [workbench,hermes,dsh,teaching]=await Promise.all([
     runtimeHealth('workbench',workbenchRoot,workbenchPython),
     runtimeHealth('hermes',config.hermesRoot,config.hermesPython),
-    bundledDsh()
+    bundledDsh(),teachingInstallation()
   ]);
-  return {workbenchRoot,workbenchPython,workbench,hermes,...dsh,dependencyCheckedAt:new Date().toISOString()};
+  return {workbenchRoot,workbenchPython,workbench,hermes,teaching,...dsh,dependencyCheckedAt:new Date().toISOString()};
 }
 
 const localProfile=()=>process.env.LOCALAPPDATA??path.join(homedir(),'.local','share');
@@ -226,7 +255,7 @@ export async function configFor(options = {}) {
   const local={workbenchRoot:selected.workbench?.root??(process.env.HYPER_BOT_WORKBENCH_ROOT||installation.root),
     workbenchPython:selected.workbench?.python??(process.env.HYPER_BOT_WORKBENCH_PYTHON||installation.python||(process.platform==='win32'?'python':'python3')),
     hermesRoot:selected.hermes?.root??hermesRoot,hermesPython:selected.hermes?.python??hermesPython};
-  return {data,key,provider,model,runtimes,...local,...await inspectDependencies(local),
+  return {data,key,provider,model,runtimes,teachingAccess:process.env.HYPER_BOT_TEACHING_ACCESS==='teacher'?'teacher':'trial',...local,...await inspectDependencies(local),
     originalWorkbenchState:options.originalWorkbenchState ?? process.env.SELF_MEDIA_STATE_DIR,
     originalWorkbenchData:options.originalWorkbenchData ?? process.env.SELF_MEDIA_DATA_DIR,
     temp:tmpdir(),upstream:options.upstream??'https://api.deepseek.com',timeoutMs:options.timeoutMs??90000};
@@ -253,7 +282,9 @@ export function dependencyStatus(config) {
     'dsh-web':bundled(config.dshWeb,needs['dsh-web']),
     dsh:bundled(config.sdk,needs.dsh),
     hermes:safe('hermes',config.hermes),
-    workbench:safe('workbench',config.workbench)
+    workbench:safe('workbench',config.workbench),
+    teaching:{ok:!!config.teaching?.ok,reason:config.teaching?.reason,code:config.teaching?.code},
+    'teaching-lessons':config.teaching?.lessons??{ok:false,reason:'内置教培组件未就绪。',code:'teaching_root'}
   }};
 }
 

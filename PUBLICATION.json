@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "project": "Hyper Bot",
-  "version": "0.1.0-dev.58",
+  "version": "0.1.0-dev.59",
   "type": "public-source-snapshot",
   "includes": [
     "application source",
@@ -9,7 +9,9 @@
     "build and test scripts",
     "synthetic fixtures",
     "application assets",
-    "third-party notices"
+    "third-party notices",
+    "built-in English teaching runtime and templates",
+    "Windows and macOS agent deployment guide"
   ],
   "excludes": [
     "private Git history",

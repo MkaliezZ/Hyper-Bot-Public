@@ -4,13 +4,15 @@ import { api, clock, day } from './client.js';
 import { ProviderCredential } from './provider-credentials.jsx';
 import { RuntimeInstallation } from './runtime-installation.jsx';
 
-const labels={provider:'DeepSeek 模型凭据','dsh-web':'DSH Web Host',dsh:'DSH SDK',hermes:'Hermes ACP',workbench:'Self Media Workbench'};
+const labels={provider:'DeepSeek 模型凭据','dsh-web':'DSH Web Host',dsh:'DSH SDK',hermes:'Hermes ACP',workbench:'Self Media Workbench',teaching:'内置英语教培','teaching-lessons':'课件与练习生成组件'};
 const variables={
   hermes:['HYPER_BOT_HERMES_ROOT','HYPER_BOT_HERMES_PYTHON'],
   workbench:['HYPER_BOT_WORKBENCH_ROOT','HYPER_BOT_WORKBENCH_PYTHON']
 };
 
 function recoveryText(id,code) {
+  if(id==='teaching')return '从完整的 Hyper Bot 安装目录启动后重新检查。';
+  if(id==='teaching-lessons')return <>用 Python 3.11 或更新版本执行 <code>npm run setup:teaching</code>，然后重新检查。</>;
   const [folder,python]=variables[id]??[];
   switch(code) {
     case 'bundle':return '重新解压完整的 Hyper Bot 测试包，从新目录启动。';
@@ -61,7 +63,9 @@ export function LocalDependencies({workspace,bot,room,online,refresh,notify}) {
   const heading=useRef(null);
   const status=workspace.localDependencies;
   const canRegister=!!status?.runtimeSetup&&!!window.hyperBot?.runtimeSetup;
-  const ids=bot?['provider',bot.driver,...(bot.kind==='script'?['workbench']:[])]:Object.keys(labels);
+  const ids=bot?.kind==='teaching'
+    ? bot.target==='bot'?['provider']:['teaching',...(['classroom','practice'].includes(bot.target)?['teaching-lessons']:[])]
+    : bot?['provider',bot.driver,...(bot.kind==='script'?['workbench']:[])]:Object.keys(labels);
   const driver=bot&&workspace.drivers.find(item=>item.id===bot.driver);
   const target=room?'#chat/'+room.id:bot?.status==='enabled'?'#bots/'+bot.id:'#manage';
   const targetLabel=room?'返回会话':bot?.status==='enabled'?'返回 '+bot.name:'返回 Bot 版本';

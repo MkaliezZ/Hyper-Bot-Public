@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>You and Me · 新朋友任务</title>
+<style>
+:root{color-scheme:light;--paper:#f6f1e5;--card:#fffdf8;--dark:#172e2a;--deep:#184e43;--leaf:#d7e9dc;--line:#d8d9cb;--amber:#f4ca73;--quiet:#50645a;--error:#832f23}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--dark);font:16px/1.5 system-ui,"Microsoft YaHei",sans-serif}button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid #a34734;outline-offset:3px}[hidden]{display:none!important}
+main{width:min(1180px,100%);margin:auto;padding:clamp(18px,4vw,42px)}.eyebrow{margin:0;font-size:.84rem;font-weight:750;color:var(--deep);letter-spacing:.06em}.title-row{display:flex;gap:12px;align-items:center;justify-content:space-between}.title-row h1{font-size:clamp(36px,6vw,68px);line-height:1;letter-spacing:-.05em;margin:9px 0 5px}.intro{margin:0 0 24px;color:var(--quiet)}.counter{background:var(--leaf);border:1px solid #b9d6c1;border-radius:30px;padding:6px 12px;font-size:.8rem;font-weight:750;white-space:nowrap}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 20px}.step{border:1px solid var(--line);border-radius:12px;background:var(--card);text-align:left;padding:8px 12px;font-weight:700}.step span{display:inline-grid;place-items:center;border-radius:50%;min-width:24px;height:24px;margin-right:6px;background:#e9eee3;font-size:.79rem}.step[aria-pressed=true]{background:var(--deep);border-color:var(--deep);color:white}.step[aria-pressed=true] span{color:var(--deep)}
+.scene-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;align-items:start}.scene{position:relative;overflow:hidden;border-radius:18px;background:#e8c987;aspect-ratio:3/2;margin:0;border:1px solid var(--line)}.scene img{cursor:pointer;width:100%;height:100%;object-fit:cover;display:block}.hotspot{position:absolute;border:2px solid #fff;border-radius:100px;background:var(--deep);color:white;padding:7px 13px;min-height:40px;font-weight:800;box-shadow:0 3px 7px #13292355;transform:translate(-50%,-50%)}.hotspot:first-of-type{left:18%;top:59%}.hotspot:nth-of-type(2){left:82%;top:59%}.hotspot:hover,.hotspot[aria-pressed=true]{background:var(--amber);color:var(--deep);border-color:var(--deep)}.scene.is-reacting img{animation:look .42s ease-out}.hotspot[aria-pressed=true]{animation:ping .42s ease-out}.card,.context{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:clamp(14px,2.4vw,24px)}.context{margin-top:10px;padding:12px 16px;min-height:71px}.context strong{display:block;margin-bottom:3px}.context p{margin:0;color:var(--quiet)}
+h2{margin:0 0 4px;font-size:clamp(22px,3vw,30px);line-height:1.2}h3{margin:0}.instruction{margin:0 0 14px;color:var(--quiet)}.dialogue{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}.dialogue li{border-radius:9px;background:var(--leaf);padding:6px 11px;animation:arrive .24s ease-out}.dialogue li:nth-child(even){background:#fbebc8}.options{display:grid;gap:7px}.option,.secondary,.primary,.clue{border:1px solid #a9bbb0;border-radius:9px;padding:7px 11px;background:#fff;text-align:left}.option:hover,.secondary:hover,.clue:hover{background:#edf5ed}.primary{background:var(--deep);color:white;border-color:var(--deep);font-weight:700}.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}.feedback{margin:8px 0 0;min-height:1.5em;color:var(--deep);font-weight:700}.feedback[data-error=true]{color:var(--error)}
+.photo-boards,.profile-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.board{background:#f7ecd2;border-radius:14px;padding:14px}.board:nth-child(2){background:#e5eee3}.clues{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.clue[aria-pressed=true]{background:var(--deep);color:white;border-color:var(--deep)}.clue span{margin-right:5px}.source-line{font-size:.8rem;color:var(--quiet);margin:4px 0 0}.evidence-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.evidence-cards p{padding:10px 13px;background:var(--leaf);margin:0;border-radius:10px;animation:arrive .24s ease-out}.profile-layout label{display:grid;font-weight:700;gap:4px;margin-top:8px}.profile-layout input,.profile-layout select{width:100%;height:42px;background:#fff;border:1px solid #a9bbb0;border-radius:9px;padding:5px 9px}.pass{background:#e9ecd6;border-color:#c8d3b7}.pass p{margin:8px 0 0;font-size:1.16rem;font-weight:650;overflow-wrap:anywhere}footer{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;margin-top:20px;color:var(--quiet);font-size:.78rem}footer button{font-size:.78rem}.next-row{margin-top:12px}
+@keyframes look{50%{transform:scale(1.035)}}@keyframes ping{50%{box-shadow:0 0 0 8px #f4ca7394}}@keyframes arrive{from{opacity:.5;transform:translateY(6px)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important}}
+@media(max-width:760px){.scene-layout,.photo-boards,.profile-layout{grid-template-columns:1fr}.scene{max-height:340px}.steps .step{font-size:.82rem;padding:7px 6px}.step span{min-width:19px;height:19px;margin-right:3px}}
+</style>
+</head>
+<body><main>
+<header><p class="eyebrow">人教版七年级上册 · Unit 1</p><div class="title-row"><h1 lang="en">You and Me</h1><span class="counter" id="progress" role="status">已完成 0/3</span></div><p class="intro">认识一位新朋友。先开口，再从图文里找到线索。</p></header>
+<nav class="steps" aria-label="课堂活动"><button class="step" type="button" data-stage="0" aria-pressed="true"><span>1</span>走廊相遇</button><button class="step" type="button" data-stage="1" aria-pressed="false"><span>2</span>图板侦探</button><button class="step" type="button" data-stage="2" aria-pressed="false"><span>3</span>搭档名片</button></nav>
+
+<section data-panel="0" aria-labelledby="meet-heading">
+  <div class="scene-layout">
+    <div><figure class="scene" id="scene"><img src="__HERO_SRC__" alt="两名学生在学校走廊相遇并挥手" width="1050" height="700"><button class="hotspot" type="button" data-person="mia" aria-pressed="false">Mia</button><button class="hotspot" type="button" data-person="leo" aria-pressed="false">Leo</button></figure><div class="context" role="status" id="person-card"><strong>点图上的人物</strong><p>看看他们准备怎么认识对方。</p></div></div>
+    <div class="card"><h2 id="meet-heading" tabindex="-1">接住对方的话</h2><p class="instruction">根据对方刚说的话，选一句合适的回应。</p><ol class="dialogue" id="dialogue" aria-label="对话" lang="en"></ol><div class="options" id="options" lang="en"></div><p id="dialogue-feedback" class="feedback" role="status"></p><div class="actions"><button class="secondary" type="button" id="replay-dialogue">重来</button><button class="primary" type="button" data-next="1" id="next-stage" hidden>下一关 · 找图片线索 →</button></div></div>
+  </div>
+  <p class="source-line">相遇场景参考原书第 19 页，问候和询问姓名参考第 20 页。配图与 Mia、Leo 对话为自编。</p>
+</section>
+
+<section data-panel="1" aria-labelledby="clue-heading" hidden><div class="card"><h2 id="clue-heading" tabindex="-1">哪张图能证明你的判断？</h2><p class="instruction">课本的两位人物发来了自我介绍。每个人选一张图片线索，再用一句英文说明理由。</p>
+  <div class="photo-boards">
+    <section class="board" aria-labelledby="pauline"><h3 id="pauline">Pauline Lee</h3><p lang="en">My favourite sport is tennis.</p><div class="clues"><button type="button" class="clue" data-board="pauline" data-clue="guitar" aria-pressed="false"><span aria-hidden="true">🎸</span>吉他</button><button type="button" class="clue" data-board="pauline" data-clue="tennis" aria-pressed="false"><span aria-hidden="true">🎾</span>网球</button></div></section>
+    <section class="board" aria-labelledby="peter"><h3 id="peter">Peter Brown</h3><p lang="en">I like music, and I play the guitar.</p><div class="clues"><button type="button" class="clue" data-board="peter" data-clue="guitar" aria-pressed="false"><span aria-hidden="true">🎸</span>吉他</button><button type="button" class="clue" data-board="peter" data-clue="parrot" aria-pressed="false"><span aria-hidden="true">🦜</span>鹦鹉</button></div></section>
+  </div>
+  <div class="actions"><button class="primary" type="button" id="check-clues">揭晓人物线索</button><button class="secondary" type="button" data-next="2" id="clue-next" hidden>下一关 · 做一张名片 →</button></div><p id="clue-feedback" class="feedback" role="status"></p>
+  <div class="evidence-cards" id="evidence" hidden><p>🎾 <strong>Pauline</strong><br><span lang="en">She is the tennis player.</span></p><p>🎸 <strong>Peter</strong><br><span lang="en">He plays the guitar.</span></p></div>
+</div><p class="source-line">人物和证据句来自原书第 24 页，图片线索图标为自编。</p></section>
+
+<section data-panel="2" aria-labelledby="profile-heading" hidden><div class="profile-layout"><div class="card"><h2 id="profile-heading" tabindex="-1">搭档名片</h2><p class="instruction">用虚构身份练习先介绍自己，再介绍同伴。</p>
+  <label>虚构英文名<input id="name" value="Mia" maxlength="24" autocomplete="off"></label>
+  <label>爱好<select id="hobby"><option value="tennis">网球 · tennis</option><option value="music">音乐 · music</option><option value="drawing">绘画 · drawing</option></select></label>
+  <label>同伴介绍用哪一个词？<select id="verb"><option value="">选一个 be 动词</option><option>am</option><option>is</option><option>are</option></select></label>
+  <div class="actions"><button class="primary" type="button" id="check-profile">检查名片</button></div><p id="profile-feedback" class="feedback" role="status"></p>
+</div><div class="card pass"><h2>双人交换说</h2><p class="eyebrow">A · 介绍自己</p><p lang="en" id="line-self"></p><p class="eyebrow">B · 介绍同伴</p><p lang="en" id="line-partner"></p><p class="source-line">念完交换角色，换一个虚构名字和爱好。</p></div></div><p class="source-line">be 动词参考原书第 23 页，仿写个人资料参考第 25 页。</p></section>
+
+<footer><span>__SOURCE__ · 本机教师预览</span><button class="secondary" type="button" id="reset">重新开始整节活动</button></footer>
+</main>
+<script>
+const el = id => document.getElementById(id);
+const completed = new Set();
+const steps = [...document.querySelectorAll('[data-stage]')];
+const panels = [...document.querySelectorAll('[data-panel]')];
+const feedback = (id, text, wrong = false) => { el(id).textContent = text; el(id).dataset.error = String(wrong); };
+function complete(activity, done = true) {
+  if (done) completed.add(activity); else completed.delete(activity);
+  el('progress').textContent = `已完成 ${completed.size}/3`;
+  steps[activity].querySelector('span').textContent = done ? '✓' : String(activity + 1);
+}
+function selectStage(stage) {
+  panels.forEach((panel, index) => { panel.hidden = index !== stage; });
+  steps.forEach((step, index) => step.setAttribute('aria-pressed', String(index === stage)));
+  panels[stage].querySelector('h2').focus();
+}
+steps.forEach((step, index) => step.addEventListener('click', () => selectStage(index)));
+document.querySelectorAll('[data-next]').forEach(button => button.addEventListener('click', () => selectStage(Number(button.dataset.next))));
+
+const cues = { mia: ['Mia 挥手打招呼。', '试试向对方问姓名：May I have your name?'], leo: ['Leo 也挥手回应。', '可以先说自己的名字，再说：Nice to meet you.'] };
+const hotspots = [...document.querySelectorAll('[data-person]')];
+el('scene').querySelector('img').addEventListener('click', event => {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const x = (event.clientX - rect.left) / rect.width;
+  if (x < .42) hotspots[0].click();
+  if (x > .58) hotspots[1].click();
+});
+hotspots.forEach(button => button.addEventListener('click', () => {
+  hotspots.forEach(pin => pin.setAttribute('aria-pressed', String(pin === button)));
+  const [title, hint] = cues[button.dataset.person];
+  el('person-card').querySelector('strong').textContent = title;
+  el('person-card').querySelector('p').textContent = hint;
+  const scene = el('scene'); scene.classList.remove('is-reacting');
+  requestAnimationFrame(() => requestAnimationFrame(() => scene.classList.add('is-reacting')));
+}));
+
+const turns = [
+  { prompt: 'Mia: Hi! I’m Mia.', options: ['Nice to meet you, Mia!', 'See you next week!'], answer: 0, reason: '刚见面时，先回应对方的问候。' },
+  { prompt: 'Leo: Nice to meet you, Mia!', options: ['Where is my bag?', 'May I have your name?'], answer: 1, reason: '想认识对方，可以礼貌询问姓名。' },
+  { prompt: 'Mia: May I have your name?', options: ['I’m Leo.', 'I’m from Class 7.'], answer: 0, reason: '对方问的是名字，用 I’m + 名字。' },
+];
+let turnIndex = 0;
+function addLine(text) { const line = document.createElement('li'); line.textContent = text; el('dialogue').append(line); }
+function nextTurn(focus = false) {
+  el('options').replaceChildren();
+  if (turnIndex === turns.length) {
+    complete(0); el('next-stage').hidden = false; if (focus) el('next-stage').focus(); return;
+  }
+  const turn = turns[turnIndex];
+  addLine(turn.prompt);
+  for (const [index, text] of turn.options.entries()) {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'option'; button.textContent = text;
+    button.addEventListener('click', () => {
+      if (index !== turn.answer) { feedback('dialogue-feedback', turn.reason + ' 再试一句。', true); return; }
+      feedback('dialogue-feedback', turn.reason);
+      if (turnIndex === turns.length - 1) addLine('Leo: ' + text);
+      turnIndex++; nextTurn(true);
+    });
+    el('options').append(button);
+  }
+  if (focus) el('options').firstElementChild.focus();
+}
+function restartDialogue() {
+  turnIndex = 0; el('dialogue').replaceChildren(); el('next-stage').hidden = true;
+  complete(0, false); feedback('dialogue-feedback', ''); nextTurn();
+}
+el('replay-dialogue').addEventListener('click', () => { restartDialogue(); el('options').firstElementChild.focus(); });
+
+const clueButtons = [...document.querySelectorAll('[data-clue]')];
+const picked = new Map();
+clueButtons.forEach(button => button.addEventListener('click', () => {
+  picked.set(button.dataset.board, button.dataset.clue);
+  clueButtons.filter(other => other.dataset.board === button.dataset.board).forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+  el('evidence').hidden = true; el('clue-next').hidden = true; feedback('clue-feedback', ''); complete(1, false);
+}));
+el('check-clues').addEventListener('click', () => {
+  if (picked.size !== 2) { feedback('clue-feedback', '请给两位人物各选一张线索。', true); return; }
+  if (picked.get('pauline') !== 'tennis' || picked.get('peter') !== 'guitar') {
+    feedback('clue-feedback', '再读一次证据句，找出人物提到的运动或乐器。', true); return;
+  }
+  el('evidence').hidden = false; el('clue-next').hidden = false; feedback('clue-feedback', '找到两条线索了。现在用完整的句子说给同伴听。'); complete(1);
+});
+
+function updateProfile() {
+  const name = el('name').value.trim() || '…'; const hobby = el('hobby').value;
+  el('line-self').textContent = `Hi! I am ${name}. I like ${hobby}.`;
+  el('line-partner').textContent = `This ${el('verb').value || '___'} my friend ${name}.`;
+  complete(2, false); feedback('profile-feedback', '');
+}
+el('name').addEventListener('input', updateProfile);
+['hobby', 'verb'].forEach(id => el(id).addEventListener('change', updateProfile));
+el('check-profile').addEventListener('click', () => {
+  if (!el('name').value.trim()) { feedback('profile-feedback', '先填写一个虚构英文名。', true); return; }
+  if (el('verb').value !== 'is') { feedback('profile-feedback', 'This 指一个人，和 is 搭配。换一个词再试。', true); return; }
+  complete(2); feedback('profile-feedback', '名片就绪。请两人分别读 A 和 B 的句子。');
+});
+el('reset').addEventListener('click', () => {
+  restartDialogue(); picked.clear(); clueButtons.forEach(b => b.setAttribute('aria-pressed','false'));
+  hotspots.forEach(b => b.setAttribute('aria-pressed','false'));
+  el('person-card').querySelector('strong').textContent='点图上的人物';
+  el('person-card').querySelector('p').textContent='看看他们准备怎么认识对方。';
+  el('evidence').hidden = true; el('clue-next').hidden = true;
+  feedback('clue-feedback',''); complete(1,false);
+  el('name').value='Mia'; el('hobby').selectedIndex=0; el('verb').selectedIndex=0; updateProfile(); selectStage(0);
+});
+restartDialogue(); updateProfile();
+</script></body></html>

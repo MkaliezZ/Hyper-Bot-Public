@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { teachingServices } from './teaching-trial.mjs';
 import { mkdir, readFile } from 'node:fs/promises';
 import { workspaceLock } from './workspace-lock.mjs';
 import { once } from 'node:events';
@@ -110,6 +111,7 @@ function apiMethod(request,response,url,host,streams,configuring) {
         if (leaf==='revoke' && post) return json(response,app.revokeMaterial(key,file,await input()),202);
       }
       if (key && part==='runs' && !extra && post) return json(response,await app.start(key,await input()),202);
+      if (key && part==='teaching-assistant' && !extra && post) return json(response,app.startTeachingAssistant(key,await input()),202);
     }
     if (first==='runs' && key && !extra) {
       takeId(key);
@@ -206,6 +208,7 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
   await mkdir(config.data,{recursive:true,mode:0o700});
   const release=await workspaceLock(config.data);
   const streams=new Set();
+  const teaching=teachingServices();
   let store, app, groups, vite, expiry, server, setting=false, mutations=0;
   const configuring=()=>setting||app.runtimeChanging;
   try {
@@ -235,8 +238,13 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
           if (windowKey!==undefined && !matchesWindowKey(request.headers[windowHeader],windowKey)) {
             throw new Problem(403,'此请求需要来自当前 Hyper Bot 桌面窗口。','window_access');
           }
-          if (request.method==='POST' && (!/^application\/json\b/.test(request.headers['content-type'] ?? '') ||
-              request.headers['x-hyper-bot']!=='1')) throw new Problem(403,'操作请求无效。');
+          if (request.method==='POST') {
+            const upload=/^\/api\/(?:v1\/workspaces\/[^/]+\/)?rooms\/[^/]+\/teaching\/upload$/.test(url.pathname);
+            const mediaType=upload?/^multipart\/form-data;\s*boundary=/i:/^application\/json\b/;
+            if(!mediaType.test(request.headers['content-type']??'')||request.headers['x-hyper-bot']!=='1'){
+              throw new Problem(403,'操作请求无效。');
+            }
+          }
           if (!ready) throw new Problem(503,'本机服务正在恢复。','host_starting');
           if (configuring()) throw new Problem(503,'本机服务正在应用组件设置。','runtime_restarting');
           if (request.method==='POST') {mutation=true;mutations++;}
@@ -251,8 +259,14 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
           const scoped=/^\/api\/v1\/workspaces\/([^/]+)(\/.*)$/.exec(url.pathname);
           const destination=scoped?await groups.get(scoped[1]):host;
           if (scoped) url.pathname='/api'+scoped[2];
-          await apiMethod(request,response,url,destination,streams,configuring);
+          const teachingRoute=/^\/api\/rooms\/([^/]+)\/teaching\/([a-z-]+)$/.exec(url.pathname);
+          if(teachingRoute){
+            if(!['GET','POST'].includes(request.method))throw new Problem(405,'不支持此操作。');
+            await (await teaching.forHost(destination)).handle(request,response,url,destination,teachingRoute[1],teachingRoute[2],json);
+          }else await apiMethod(request,response,url,destination,streams,configuring);
         } else {
+          const preview=/^\/teaching-preview\/([0-9a-f-]{36})$/.exec(url.pathname);
+          if(preview)return await teaching.render(request,response,preview[1]);
           const workspacePage=/^\/w\/([0-9a-f-]{36})\/$/.exec(url.pathname);
           if (workspacePage) {
             if (!groups.list().some(item=>item.id===workspacePage[1])) throw new Problem(404,'工作区不存在。','not_found');
@@ -272,6 +286,7 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
     expiry.unref();
   } catch(error) {
     if (server?.listening) await new Promise(resolve=>server.close(resolve));
+    await teaching.close();
     await groups?.close();
     await app?.shutdown();
     await vite?.close();
@@ -299,6 +314,7 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
       app.registry.controller?.abort(new Error('Host closing'));
       try {
         await drained;
+        await teaching.close();
         try {await groups.close();} finally {await app.shutdown();}
       } finally {
         await vite?.close();

@@ -14,7 +14,8 @@ import { id } from './contracts.mjs';
 const database = 'hyper-bot.sqlite';
 const format = 'hyper-bot-workspace/1';
 const retainedFormat = 'hyper-bot-workspace/2';
-const knownWorkbenchPaths = ['workbench/projects', 'workbench/sessions', 'workbench/task-requests'];
+const knownWorkbenchPaths = ['workbench/projects', 'workbench/sessions', 'workbench/task-requests','teaching-trial/assets','teaching-trial/artifacts'];
+const trialDB='teaching-trial/m0.sqlite';
 const manifestFile = 'manifest.json';
 
 export async function hashWorkspaceFile(file) {
@@ -34,7 +35,7 @@ function relativeEntry(key) {
   const parts = key.split('/');
   if (!parts.every(part => part && part !== '.' && part !== '..' && !/[\\:\u0000-\u001f]/.test(part))) return false;
   const entry=parts[0]==='groups'&&id.safeParse(parts[1]).success?parts.slice(2).join('/'):key;
-  return entry===database || knownWorkbenchPaths.some(prefix=>entry.startsWith(prefix+'/'));
+  return entry===database || entry===trialDB || knownWorkbenchPaths.some(prefix=>entry.startsWith(prefix+'/'));
 }
 const fileEntry = z.strictObject({ path:z.string().refine(relativeEntry), bytes:z.number().int().nonnegative(), sha256:z.string().regex(/^[a-f0-9]{64}$/) });
 const manifestFields = {
@@ -110,6 +111,18 @@ async function requireDirectory(source,relative) {
   if (!info?.isDirectory()||info.isSymbolicLink()) throw new Error('工作区分组目录无效。请核对 '+relative+'。');
 }
 
+async function checkpointTrial(source,prefix) {
+  const base=local(source,prefix+'teaching-trial');
+  const info=await existing(base);
+  if(!info)return;
+  if(!info.isDirectory()||info.isSymbolicLink())throw new Error('试用教培目录无效。');
+  const file=local(source,prefix+trialDB),dbInfo=await existing(file);
+  if(!dbInfo)return;
+  if(!dbInfo.isFile()||dbInfo.isSymbolicLink())throw new Error('试用教培数据库无效。');
+  const db=new DatabaseSync(file);
+  try {if(db.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get().busy)throw new Error('教培数据正在使用。');}
+  finally{db.close();}
+}
 async function snapshotDatabase(source,target,relative) {
   const from=local(source,relative), to=local(target,relative);
   const info=await existing(from);
@@ -128,6 +141,9 @@ async function snapshotDatabase(source,target,relative) {
 }
 
 async function archiveFiles(source,prefix,entries) {
+  const trial=await existing(local(source,prefix+'teaching-trial'));
+  if(trial&&(!trial.isDirectory()||trial.isSymbolicLink()))throw new Error('试用教培目录无效。');
+  await tree(source,prefix+trialDB,entries);
   const workbench=await existing(local(source,prefix+'workbench'));
   if (workbench && (!workbench.isDirectory()||workbench.isSymbolicLink())) throw new Error('工作台目录类型无效。');
   for (const name of knownWorkbenchPaths) await tree(source,prefix+name,entries);
@@ -151,6 +167,7 @@ export async function backupWorkspace(source, target, {retainUntil} = {}) {
     const entries = [];
     await tree(target,database,entries);
     const assets = [];
+    await checkpointTrial(source,'');
     await archiveFiles(source,'',assets);
     for (const entry of assets) await copyEntry(source,target,entry);
     for (const prefix of groups) {
@@ -159,6 +176,7 @@ export async function backupWorkspace(source, target, {retainUntil} = {}) {
         await snapshotDatabase(source,target,prefix+database);
         await tree(target,prefix+database,entries);
         const groupAssets=[];
+        await checkpointTrial(source,prefix);
         await archiveFiles(source,prefix,groupAssets);
         for (const entry of groupAssets) await copyEntry(source,target,entry);
         assets.push(...groupAssets);

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { posix } from 'node:path';
 import { z } from 'zod';
 import { Problem, botKey as slug, heading, sha, definitionPrompt, resultOf } from './contracts.mjs';
-import { at, botOf, isLive, skillOf } from './store.mjs';
+import { at, registeredBotOf, isLive, skillOf } from './store.mjs';
 import { checkedSample, checkSampleResult, materializeExample, sampleDigest, sampleFixtureInput } from './bot-sample.mjs';
 import { cleanRuntime } from './materials.mjs';
 import { DRIVERS, execute } from './engines.mjs';
@@ -10,6 +10,7 @@ import { dependencies, requireRuntimeSource, WB_REVISION } from './config.mjs';
 import { unusedMeter } from './provider.mjs';
 import { legacyVerification, upstreamMode } from './run-receipts.mjs';
 import { Workbench } from './workbench.mjs';
+import { teachingBot } from './teaching-catalog.mjs';
 
 const version = z.string().regex(/^\d+\.\d+\.\d+$/);
 const kind = z.enum(['script','brief']);
@@ -183,7 +184,7 @@ export class Registry {
   }
 
   samplePreview(id,revision) {
-    const state=this.store.read(), bot=botOf(state,id,revision);
+    const state=this.store.read(), bot=registeredBotOf(state,id,revision);
     const preview=verifiedPreview(state,bot);
     if (!preview) throw new Problem(404,'此版没有可查看的样例成果。','sample_preview_unavailable');
     return {kind:bot.kind,runId:bot.sample.runId,model:bot.sample.model,at:bot.sample.at,
@@ -265,8 +266,11 @@ export class Registry {
       throw new Problem(422,'请选择已审阅的 Skill 或自带流程。','workflow_required');
     }
     return this.store.change(state=>{
+      if(teachingBot(input.id,1)&&!state.bots.some(bot=>bot.id===input.id)) {
+        throw new Problem(409,'这个编号已用于内置教培 Bot。','builtin_bot');
+      }
       setupSkills(state,input);
-      const source=sourceRevision===undefined?null:botOf(state,input.id,sourceRevision);
+      const source=sourceRevision===undefined?null:registeredBotOf(state,input.id,sourceRevision);
       const fixture=reuseSample?inheritedSample(source,input.kind):checkedSample(submitted,input.kind);
       const revision = Math.max(0,...state.bots.filter(bot=>bot.id===input.id).map(bot=>bot.revision))+1;
       const bot = {...input,fixture,revision,driverRevision:DRIVERS[input.driver].revision,
@@ -291,7 +295,7 @@ export class Registry {
         if (run.state!=='running') continue;
         const reason='本机服务退出，候选验证已中断。';
         this.store.transition(state,emit,run,'interrupted',{error:reason});
-        const bot=botOf(state,run.botId,run.botRevision);
+        const bot=registeredBotOf(state,run.botId,run.botRevision);
         bot.sample={ok:false,reason,at:run.finishedAt,runId:run.id,
           usage:run.usage,model:run.model,driverRevision:run.driverRevision??bot.driverRevision};
       }
@@ -299,7 +303,7 @@ export class Registry {
   }
 
   async verify(id,revision) {
-    const state = this.store.read(),bot = botOf(state,id,revision);
+    const state = this.store.read(),bot = registeredBotOf(state,id,revision);
     if (bot.status!=='draft') throw new Problem(409,'只可验证候选版本。');
     if (this.testing || state.runs.some(isLive)) throw new Problem(409,'已有任务在处理。完成后可验证候选版本。','busy');
     const blocked = botBlock(state,this.config,bot);
@@ -371,14 +375,14 @@ export class Registry {
         driverRevision:run.driverRevision,model:run.model,...(run.workflow?{workflow:run.workflow}:{})};
       if (!cleaned) run.cleanupPending=true;
       if (outcome==='succeeded') run.samplePreview=preview;
-      botOf(next,id,revision).sample=sample;
+      registeredBotOf(next,id,revision).sample=sample;
       return sample;
     });
   }
 
   async publish(id,revision) {
     const check=state=>{
-      const bot=botOf(state,id,revision);
+      const bot=registeredBotOf(state,id,revision);
       const block=botBlock(state,this.config,bot);
       if (block) throw new Problem(503,block);
       if (this.testing===id+'/'+revision || bot.status!=='draft' || !sampleReady(state,bot,this.config.model)) {
@@ -410,7 +414,7 @@ export class Registry {
 
   async restore(id,revision) {
     const check=state=>{
-      const bot=botOf(state,id,revision);
+      const bot=registeredBotOf(state,id,revision);
       const block=botBlock(state,this.config,bot);
       if(block)throw new Problem(503,block);
       if (bot.status!=='disabled' || (!bot.qualification && !sampleReady(state,bot))) {
@@ -429,7 +433,7 @@ export class Registry {
 
   disable(id,revision) {
     this.store.change((state,emit)=>{
-      botOf(state,id,revision);
+      registeredBotOf(state,id,revision);
       this.disableIn(state,emit,id,revision);
     });
   }

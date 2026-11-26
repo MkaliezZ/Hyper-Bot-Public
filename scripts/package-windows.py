@@ -15,11 +15,14 @@ ROOT = Path(__file__).resolve().parents[1]
 ELECTRON = ("41.0.2", "dcd36396a606a5ae2f5651b4ee6bb463a624dbf15f786eda57cee2cc361c138c")
 NODE = ("25.8.1", "09a5a0dbb2f4cefa800880012810e2dfaac0016a62e75f064c4ab7f3606b2d78")
 NODE_EXE_SHA = "8ccfc9b16942fd1f4154e160a249805dd88eb0d253b789aa669b91cf0ade6e57"
-COPY_DIRS = ("desktop", "server", "dist", "public", "skills")
+COPY_DIRS = ("desktop", "server", "dist", "public", "skills", "teaching")
 SCRIPTS = ("doctor.mjs", "workspace.mjs", "hermes_acp.py", "workbench_server.py")
 NOTICE = re.compile(r"^(licen[cs]e|licensing|copying|notice)([._ -]|$)", re.I)
 FILE_MANIFEST = "包内文件摘要.json"
 WINDOWS_MARK = "public/media/mark.png"
+TEACHING_LOCK = "resources/app/teaching/windows-runtime.lock.json"
+TEACHING_PYTHON = "resources/app/teaching/python"
+PYTHON_SITE = "Lib/site-packages"
 DSH_VERSION = "0.2.2-rc.1"
 # Hyper Bot starts the pinned sdk-minimal profile and sends authorized text over
 # its private API. These other profiles and media engines are not entry points.
@@ -76,6 +79,79 @@ def extract(archive, entry, target):
     target.parent.mkdir(parents=True, exist_ok=True)
     with archive.open(entry) as source, target.open("xb") as sink:
         shutil.copyfileobj(source, sink)
+
+
+def python_layout(lock):
+    version = lock["python"]["version"]
+    if lock["schema"] != 1 or not re.fullmatch(r"3\.\d+\.\d+", version):
+        raise ValueError("课件 Python 运行时锁文件无效。")
+    stem = "python" + "".join(version.split(".")[:2])
+    pth = f"{stem}.zip\r\n.\r\nLib\\site-packages\r\n..\\server\r\n".encode("ascii")
+    return stem, pth
+
+
+def teaching_python_metadata(lock):
+    return {
+        "version": lock["python"]["version"],
+        "archiveSha256": lock["python"]["sha256"],
+        "wheels": [{key: row[key] for key in ("name", "version", "sha256")} for row in lock["wheels"]],
+    }
+
+
+def install_teaching_python(folder, python_zip, wheelhouse):
+    lock = load_json(folder / TEACHING_LOCK)
+    stem, pth = python_layout(lock)
+    target = folder / TEACHING_PYTHON
+    with verified_zip(python_zip, lock["python"]["sha256"]) as archive:
+        for entry in archive.infolist():
+            if not entry.is_dir():
+                extract(archive, entry, target / relative(entry.filename))
+    path_file = target / (stem + "._pth")
+    if not path_file.is_file():
+        raise ValueError("课件 Python 发行包缺少隔离搜索路径。")
+    path_file.write_bytes(pth)
+    for wheel in lock["wheels"]:
+        filename = relative(wheel["filename"])
+        if len(filename.parts) != 1:
+            raise ValueError("Python wheel 文件名无效。")
+        with verified_zip(wheelhouse / filename, wheel["sha256"]) as archive:
+            for entry in archive.infolist():
+                if entry.is_dir():
+                    continue
+                member = relative(entry.filename)
+                if member.parts[0].endswith(".data"):
+                    if len(member.parts) < 3:
+                        raise ValueError(f"课件 wheel 使用了未支持的路径 {member}")
+                    scheme = member.parts[1]
+                    if scheme == "scripts":
+                        continue
+                    if scheme not in ("purelib", "platlib"):
+                        raise ValueError(f"课件 wheel 使用了未支持的路径 {member}")
+                    member = PurePosixPath(*member.parts[2:])
+                extract(archive, entry, target / PYTHON_SITE / member)
+    return teaching_python_metadata(lock)
+
+
+def verify_teaching_python(archive, read, members, metadata):
+    if TEACHING_LOCK not in members and "teachingPython" not in metadata:
+        return
+    lock = read(TEACHING_LOCK)
+    stem, pth = python_layout(lock)
+    if metadata.get("teachingPython") != teaching_python_metadata(lock):
+        raise ValueError("课件 Python 清单与锁文件不一致。")
+    required = ("python.exe", "python3.dll", f"{stem}.dll", f"{stem}.zip", f"{stem}._pth",
+                "vcruntime140.dll", "vcruntime140_1.dll", "LICENSE.txt")
+    if any(f"{TEACHING_PYTHON}/{name}" not in members for name in required):
+        raise ValueError("测试包的便携 Python 发行文件不完整。")
+    if archive.read(members[f"{TEACHING_PYTHON}/{stem}._pth"]) != pth:
+        raise ValueError("测试包的 Python 搜索路径不正确。")
+    for row in lock["wheels"]:
+        dist = row["filename"].split("-", 1)[0]
+        base = f"{TEACHING_PYTHON}/{PYTHON_SITE}/{dist}-{row['version']}.dist-info/"
+        if any(base + name not in members for name in ("METADATA", "RECORD", "WHEEL")) or not any(
+            name.startswith(base) and NOTICE.match(PurePosixPath(name).name) for name in members
+        ):
+            raise ValueError(f"课件 Python 组件或许可文件缺失 {row['name']}")
 
 
 def ignore_nested(folder, names):
@@ -346,6 +422,7 @@ def verify(candidate):
             raise ValueError("应用名称或版本信息与 ZIP 不一致。")
         indexed = verify_files(archive, members, read(FILE_MANIFEST))
         inventory, gaps = verify_packages(read, members, indexed, metadata)
+        verify_teaching_python(archive, read, members, metadata)
         identity = metadata.get("windowsIdentity")
         if identity is not None and (
             (identity["product"], identity["version"]) != (metadata["product"], metadata["version"])
@@ -371,6 +448,7 @@ def verify(candidate):
             "packageLockSha256": metadata["packageLockSha256"], "runtimeProfile": metadata["runtimeProfile"],
             "externalComponents": metadata["externalComponents"],
             **({"windowsIdentity": identity} if identity is not None else {}),
+            **({"teachingPython": metadata["teachingPython"]} if "teachingPython" in metadata else {}),
         }
 
 
@@ -423,7 +501,8 @@ def assemble(args):
     app.mkdir()
     for name in COPY_DIRS:
         # Standalone browser development entry point belongs to the source checkout.
-        ignore = shutil.ignore_patterns("index.mjs") if name == "server" else None
+        ignore = (shutil.ignore_patterns("index.mjs") if name == "server" else
+                  shutil.ignore_patterns("__pycache__", "*.pyc") if name == "teaching" else None)
         shutil.copytree(source / name, app / name, ignore=ignore)
     for name in SCRIPTS:
         dest = app / "scripts" / name
@@ -433,6 +512,7 @@ def assemble(args):
     write_json(app / "package.json", {**app_package, "main": "desktop/main.mjs"})
     shutil.copy2(source / "package-lock.json", app / "package-lock.json")
     inventory = dependencies(source, args.install.resolve(), app)
+    teaching_python = install_teaching_python(folder, args.python_zip, args.teaching_wheels)
     supplement_notices(source, folder, inventory)
     shutil.copy2(ROOT / "docs/Windows 测试包使用.md", folder / "使用说明.md")
     shutil.copy2(ROOT / "scripts/Hyper Bot 维护.cmd", folder / "Hyper Bot 维护.cmd")
@@ -443,6 +523,7 @@ def assemble(args):
                             "executableSha256": sha256(executable), "markSha256": sha256(mark),
                             "electronExecutableSha256": electron_executable_sha},
         "node": {"version": NODE[0], "archiveSha256": NODE[1], "executableSha256": NODE_EXE_SHA, "notices": ["resources/node/LICENSE"]},
+        "teachingPython": teaching_python,
         "packageLockSha256": sha256(source / "package-lock.json"),
         "npmInventory": "npm-组件清单.json",
         "npmPackageCount": len(inventory["packages"]),
@@ -466,6 +547,7 @@ def assemble(args):
     if not args.unpack_only:
         seal(folder)
     return {"version": version, "folder": str(folder), "zip": str(destination) if not args.unpack_only else None,
+            "teachingPython": teaching_python,
             "packageCount": metadata["npmPackageCount"], "licenseMetadataGaps": len(metadata["missingDeclaredLicense"]),
             "noticeFileGaps": len(metadata["packagesWithoutNoticeEvidence"]),
             "supplementedPackageCount": metadata["supplementedPackageCount"],
@@ -479,6 +561,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=ROOT / "release")
     parser.add_argument("--electron-zip", type=Path)
     parser.add_argument("--node-zip", type=Path)
+    parser.add_argument("--python-zip", type=Path, help="验包锁文件中指定的 Windows x64 嵌入式 Python ZIP")
+    parser.add_argument("--teaching-wheels", type=Path, help="保存课件运行时锁定 wheel 的目录")
     parser.add_argument("--unpack-only", action="store_true")
     parser.add_argument("--verify", type=Path, metavar="ZIP")
     arguments = parser.parse_args()
@@ -486,8 +570,8 @@ if __name__ == "__main__":
         if arguments.verify:
             result = verify(arguments.verify)
         else:
-            if not arguments.electron_zip or not arguments.node_zip:
-                parser.error("构建需要 --electron-zip 和 --node-zip。")
+            if not all((arguments.electron_zip, arguments.node_zip, arguments.python_zip, arguments.teaching_wheels)):
+                parser.error("构建需要 --electron-zip、--node-zip、--python-zip 和 --teaching-wheels。")
             result = assemble(arguments)
         print(json.dumps(result, ensure_ascii=False))
     except (OSError, ValueError, KeyError, BadZipFile, subprocess.TimeoutExpired) as error:

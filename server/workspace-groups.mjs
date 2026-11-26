@@ -100,7 +100,7 @@ export class WorkspaceGroups {
           state.installedBots=[];
         });
       }
-      const config=Object.assign(Object.create(this.config),{data,allowOriginalWorkbench:false});
+      const config=Object.assign(Object.create(this.config),{data,allowOriginalWorkbench:false,teachingAccess:'trial'});
       app=new HyperBot(store,config,this.workbenchFactory?.(config) ?? new Workbench(config));
       await app.boot();
       return {app,store,group,release};

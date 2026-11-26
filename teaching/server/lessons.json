@@ -1,0 +1,43 @@
+{
+  "k12": {
+    "name": "K12｜认识新朋友",
+    "source": "人教版英语七年级上册 Unit 1 · You and Me",
+    "anchors": {"28": ["you and me", "introduce yourself"], "32": ["am, is, or are"]},
+    "interactive_anchors": {"29": ["may i have your name?"], "33": ["pauline lee", "peter brown", "photo boards"], "34": ["complete your reply"]},
+    "objective": "用 am、is、are 进行自我介绍和同伴介绍。",
+    "questions": [
+      {"prompt": "Hi, I ___ Mia. My friend ___ Leo.", "options": ["am / is", "is / am", "are / is"], "answer": 0, "feedback": "I 用 am，单数第三人称 My friend 用 is。"},
+      {"prompt": "选一句适合在见面时介绍两个人的话。", "options": ["We is in Class 7.", "We are in Class 7.", "We am in Class 7."], "answer": 1, "feedback": "We 是复数主语，搭配 are。"}
+    ],
+    "transfer": "两人一组：用虚构身份介绍自己，再用一整句向全班介绍同伴。"
+  },
+  "toefl": {
+    "name": "托福｜读懂校园短通知",
+    "interactive_name": "托福｜读懂通知与邮件",
+    "source": "TOEFL iBT Teacher Resources · Practice Test 1",
+    "anchors": {"2": ["read in daily life", "reading material"]},
+    "interactive_anchors": {"4": ["staff meeting", "has been rescheduled", "august 12th at 3:00 pm"], "5": ["down payment of 30 percent", "fourteen days in advance", "photographers on staff"]},
+    "objective": "在校园通知中定位变更信息和读者下一步行动。",
+    "interactive_objective": "从日常通知和邮件定位变更、行动条件与支持证据。",
+    "scenario": "Notice: Friday’s lab tour moves from Room 204 to the library lobby. Sign up by Thursday if you plan to attend.",
+    "questions": [
+      {"prompt": "Where should students go on Friday?", "options": ["Room 204", "The library lobby", "The laboratory entrance"], "answer": 1, "feedback": "moves from A to B 指的是从旧地点 A 改到新地点 B。"},
+      {"prompt": "What should students do before Friday?", "options": ["Reserve Room 204", "Go to the lobby on Thursday", "Sign up by Thursday"], "answer": 2, "feedback": "by Thursday 是报名截止时间，句中的动作是 sign up。"}
+    ],
+    "transfer": "圈出原文中支持两条答案的信息，再写一份含时间变更的通知。"
+  },
+  "ielts": {
+    "name": "雅思｜Academic Writing Task 1 概述",
+    "source": "IELTS · Sample Academic Writing Responses and Examiner Comments",
+    "anchors": {"1": ["task 1", "task achievement"], "2": ["academic writing part 1", "striking feature"]},
+    "interactive_anchors": {"3": ["candidate response 2", "examiner comment", "walking and bus"]},
+    "objective": "从数据中提炼整体趋势，并区分数据陈述和原因推测。",
+    "interactive_objective": "读取出行图表、比较关键变化，并根据考官点评修订概述和细节段。",
+    "scenario": "Fictional library visits: Monday — 20 students, 30 adults. Friday — 50 students, 30 adults.",
+    "questions": [
+      {"prompt": "Which sentence works best as an overview?", "options": ["Student visits rose while adult visits stayed steady.", "Exactly 20 students visited on Monday.", "Adults visited less because they were busy."], "answer": 0, "feedback": "概述需要归纳主要变化和对比，不应引入数据未提供的原因。"},
+      {"prompt": "Which detail supports the main trend?", "options": ["Adult visits doubled.", "Student visits increased from 20 to 50.", "Student visits decreased to 20."], "answer": 1, "feedback": "20 到 50 是学生来访量上升的证据。"}
+    ],
+    "transfer": "先写一句概述，再写一句用具体数据支撑该概述的细节句。"
+  }
+}

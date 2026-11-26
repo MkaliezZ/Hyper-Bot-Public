@@ -78,7 +78,10 @@ const receipt=(state,version)=>state.artifacts.find(record=>record.version===ver
 try {
   host=await open();
   const workspace=await api('/workspace');
-  assert.ok(workspace.bots.every(bot=>!bot.blocked),JSON.stringify(workspace.bots.map(b=>b.blocked)));
+  for(const id of ['media','brief']) {
+    const bot=workspace.bots.find(item=>item.id===id);
+    assert.ok(bot&&!bot.blocked, id+': '+(bot?.blocked??'missing'));
+  }
   const media=await create('media',1);
   const firstView=await room(media);
   const files=firstView.draft.attachments;

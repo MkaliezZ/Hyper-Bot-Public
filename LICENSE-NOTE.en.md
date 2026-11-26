@@ -6,4 +6,6 @@ The Hyper Bot source, mark, and exercise cover are published with this snapshot.
 
 The talking-video script skill draws on the pinned Self Media Workbench version. Its MIT license is included verbatim. Dependencies follow their upstream licenses, and the supplementary notices directory contains the original license texts and their source index.
 
-[Self Media Workbench MIT license](docs/Workbench-MIT-LICENSE.txt) · [Third-party notices and source index](docs/第三方许可补充)
+The built-in teaching runtime includes its MIT license and attribution.
+
+[Teaching runtime license](teaching/LICENSE) · [Self Media Workbench MIT license](docs/Workbench-MIT-LICENSE.txt) · [Third-party notices and source index](docs/第三方许可补充)

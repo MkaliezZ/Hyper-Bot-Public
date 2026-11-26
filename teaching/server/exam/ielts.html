@@ -1,0 +1,136 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>雅思 · Task 1 图表写作工作坊</title><style>__STYLE__
+.chart{border:1px solid var(--line);padding:11px 13px;border-radius:12px;margin:12px 0;background:#fcf9ff}.chart h3{margin-top:0}.chart-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #e7dfed}.chart-row:last-child{border-bottom:0}.mode-label{font-size:.85rem;font-weight:750}.plots{display:grid;gap:3px}.plot{display:flex;align-items:center;min-height:25px;border:0;background:transparent;text-align:left;padding:0;width:100%;color:var(--ink);gap:5px}.plot .bar{height:18px;min-width:6px;display:block;background:#89aca1;border:1px solid #47776a;border-radius:4px;transition:width .35s}.plot[data-year='2010'] .bar{background:#937fb7;border-color:#614f84}.plot:hover .bar,.plot[aria-pressed=true] .bar{border:2px solid #241f49;filter:saturate(1.25)}.bar-stat{font-size:.76rem;font-weight:650}.delta{padding:3px 7px;background:var(--soft);border-radius:6px;font-size:.81rem;color:var(--accent)}.chart output{display:block;margin-top:7px;min-height:1.5em}.table{border-collapse:collapse;width:100%;font-size:.91rem}.table th,.table td{border-bottom:1px solid var(--line);padding:6px;text-align:left}.sample-tab{min-height:127px}.sample-tab p:last-child{margin-bottom:0}.writing label{display:block;font-weight:750;margin-top:8px}.writing .write{min-height:69px}.writing .checklist label{font-weight:400}.tiny-note{font-size:.82rem;color:var(--secondary)}
+.plot[aria-pressed=true] .bar{transform-origin:left;animation:chart-pop .35s ease-out}@keyframes chart-pop{45%{transform:scaleY(1.22)}}.mini-line{display:grid;grid-template-columns:3em minmax(0,1fr) 3ch;gap:8px;align-items:center;padding:3px 0}.mini-bar{height:13px;border-radius:3px;background:#846cae;min-width:2px;transition:width .25s}.mini-bar[data-direction=fall]{background:#659383}.mini-bar[data-direction=steady]{background:#8a8391}
+@media(max-width:440px){.chart-row{grid-template-columns:83px minmax(0,1fr);gap:5px}.mode-label{font-size:.79rem}.bar-stat{font-size:.72rem}.chart{padding:8px}}
+</style></head><body class="ielts"><main>
+<header class="hero"><p class="eyebrow">IELTS ACADEMIC · WRITING TASK 1</p><h1>从读图到写概述</h1><p>读一张儿童上学出行图，决定哪些变化值得写进概述。这节课会拆看两份考生样例的考官点评，然后自己写一段并修订。</p><div class="level"><span class="chip">7 节</span><span class="chip">课堂建议 40–50 分钟</span><span class="chip">读图 · 结构 · 修改</span></div></header>
+<div class="layout"><nav aria-label="本课目录"><span id="progress" role="status">完成 0/7 节</span><a href="#chart">1. 点柱读图</a><a href="#rank">2. 排名与变化</a><a href="#overview">3. 选出概述</a><a href="#group">4. 组织细节段</a><a href="#examiner">5. 考官视角</a><a href="#draft">6. 写作与自检</a><a href="#extension">7. 新图迁移</a></nav><article>
+
+<section class="lesson-block" id="chart"><p class="eyebrow">01 · 读题与读轴</p><h2>点击柱条，读出模式、年份和单位</h2><p>图表计量的是每年上学出行的<strong>次数</strong>，单位是百万次。试点两年柱条，再切到「差值」观察谁涨、谁跌。</p>
+<div class="chart"><h3 lang="en">School travel by mode, 1990 and 2010</h3><div class="tools" aria-label="图表视图"><button class="btn" type="button" data-view="both" aria-pressed="true">并排比较</button><button class="btn" type="button" data-view="1990" aria-pressed="false">只看 1990</button><button class="btn" type="button" data-view="2010" aria-pressed="false">只看 2010</button><button class="btn" type="button" data-view="delta" aria-pressed="false">差值</button></div><div id="plot-rows" aria-label="出行方式与柱条"></div><output id="plot-reading" class="feedback" aria-live="polite">点一条柱读数。</output></div>
+<p class="source">根据两份样例重绘的教学图。文件只给例文和考官点评，未附原图。图中采用近似值；1990 年汽车约 4 百万次是教学补值。原样例个别数字不一致，练习以本图为准。</p>
+<details><summary>可访问数据表 · 按行读数</summary><table class="table"><thead><tr><th scope="col">出行方式</th><th scope="col">1990</th><th scope="col">2010</th><th scope="col">变化</th></tr></thead><tbody id="values"></tbody></table></details></section>
+
+<section class="lesson-block" id="rank"><p class="eyebrow">02 · 两个问题，两种比较</p><h2>最多的是谁？变化最大的是谁？</h2><p>先比较同一年各类别，再比较同一类别跨年份。点卡片核对你的读法。</p><div class="tools"><button class="btn" type="button" data-rank="1990">1990 排第一</button><button class="btn" type="button" data-rank="2010">2010 排第一</button><button class="btn" type="button" data-rank="delta">最大下降</button></div><p id="rank-reading" class="feedback" aria-live="polite">先在脑中想出答案，再点卡片。</p>
+<form data-quiz><fieldset><legend>哪句话同时对比了两年的第一名？</legend><label><input type="radio" name="rank" data-why="11 是 2010 年汽车的数据。题目要求两个年份。">2010 年汽车出行约 11 百万次。</label><label><input type="radio" name="rank" data-answer="true" data-why="正确。1990 年步行最多；2010 年汽车出行领先。">1990 年步行最常见，而 2010 年汽车出行排名第一。</label><label><input type="radio" name="rank" data-why="公交出行有下降，两年都没有达到第一。">公交在两年都排第一。</label></fieldset><button class="action" type="submit">核对比较</button><output class="feedback" aria-live="polite"></output></form></section>
+
+<section class="lesson-block" id="overview"><p class="eyebrow">03 · 概述工作台</p><h2>把五类数据压缩成一两句话</h2><div class="explain"><strong>先归纳两条可以统领细节的观察。</strong><p>看排名变化，再看方向。两年的名次不同，汽车是唯一增长的方式。精确数值放在细节段，原因要有图表依据。</p></div>
+<form data-quiz><fieldset><legend>哪一句最适合作为这张图的概述？</legend><label><input type="radio" name="overview" data-why="这句只给出一个数据点，可以留到细节段。">About 13 million trips were made on foot in 1990.</label><label><input type="radio" name="overview" data-answer="true" data-why="正确。汽车取代步行成为最常用方式，并且是唯一增长项。">Car travel overtook walking, while the other modes all declined.</label><label><input type="radio" name="overview" data-why="图里只有出行次数，不能推断父母更有钱。">Car use rose because parents earned more.</label></fieldset><button class="action" type="submit">核对概述</button><output class="feedback" aria-live="polite"></output></form>
+<details><summary>换一种写法 · 保留信息，换结构</summary><p lang="en">Overall, walking was the most common mode in 1990, but travelling by car led in 2010. Car travel was the only category to increase.</p><p>讨论：两句话的版本更容易写准哪一层关系？一长句和两短句都可以。</p></details></section>
+
+<section class="lesson-block" id="group"><p class="eyebrow">04 · 让细节有分组和对照</p><h2>先写主转变，再补其他下降项</h2><p>试着用两个细节段。点击所有适合放入「其他方式下降」段的类别。</p><div class="tools" role="group" aria-label="选择细节段类别"><button class="btn" type="button" data-group="walking" aria-pressed="false">步行</button><button class="btn" type="button" data-group="car" aria-pressed="false">汽车</button><button class="btn" type="button" data-group="bus" aria-pressed="false">公交</button><button class="btn" type="button" data-group="cycling" aria-pressed="false">骑行</button><button class="btn" type="button" data-group="combined" aria-pressed="false">步行加公交</button></div><button id="group-check" class="action" type="button">检查分组</button><p id="group-reading" class="feedback" aria-live="polite"></p>
+<div class="grid"><div class="tile"><h3>细节 A · 排名互换</h3><p lang="en">Walking fell from about 13 to 6 million trips, whereas car trips rose from roughly 4 to 11 million.</p></div><div class="tile"><h3>细节 B · 同向下降</h3><p lang="en">Bus use slipped from 7 to 5 million. Cycling and the combined category also fell, to 2 and 3 million respectively.</p></div></div>
+<details><summary>延伸 · 分组其他可能性</summary><p>也可先描述 1990 的高低分布，再看 2010 变化。但要明确连接两年，还要写到每组有代表性的比较。找一位同伴，比较哪种结构读起来更快。</p></details></section>
+
+<section class="lesson-block" id="examiner"><p class="eyebrow">05 · 从考官点评倒推修订</p><h2>读样例时问两个问题</h2><p>读者能很快看出总体变化吗？每个重要变化有没有数据支撑？</p><div class="tools"><button class="btn" type="button" data-sample="strong" aria-pressed="true">样例 1 · 归纳到位</button><button class="btn" type="button" data-sample="weak" aria-pressed="false">样例 2 · 有遗漏</button></div><div class="tile sample-tab" id="sample-reading" aria-live="polite"><h3>样例 1</h3><p>考官肯定了主要变化和最后一段的概述，也指出部分描述缺少数据支持，呈现方式略机械。</p></div>
+<form data-quiz><fieldset><legend>样例 2 最值得优先修什么？</legend><label><input type="radio" name="examiner" data-why="优先解决内容覆盖和组织问题。只换生词无法补足缺失的项目。">先把每个常用词换成更复杂的词</label><label><input type="radio" name="examiner" data-answer="true" data-why="正确。补上遗漏类别并把数据组织起来，再做词句层面的校对。">补上步行加公交，梳理两年的关键比较</label><label><input type="radio" name="examiner" data-why="题干要求汇报图表。这里没有事故、收入或政策等数据。">增加两句出行趋势的社会原因</label></fieldset><button class="action" type="submit">核对修订优先级</button><output class="feedback" aria-live="polite"></output></form><p class="source">考官点评来自本机 IELTS 样例 PDF 第 2–3 页，本页为内容提炼。</p></section>
+
+<section class="lesson-block" id="draft"><p class="eyebrow">06 · 写作与同伴自检</p><h2>先写概述，再写一组有数据的对比</h2><p>课堂先写两个小段。把草稿读给同伴听，听者复述两条总体观察，再指出哪两个数字支撑你的比较。</p><form id="writer" class="writing"><label for="draft-overview">我的概述</label><textarea id="draft-overview" class="write" maxlength="1000" placeholder="Overall, ..."></textarea><label for="draft-detail">我的细节与数据</label><textarea id="draft-detail" class="write" maxlength="1400" placeholder="In 1990, ... whereas ..."></textarea><p class="tiny-note" id="draft-count">当前约 0 个空格分隔词。</p><div class="checklist"><label><input type="checkbox" id="check-unit"> 我核过单位，写的是 trips。</label><label><input type="checkbox" id="check-main"> 我核过主变化，并删掉无据原因。</label></div><button class="action" type="submit">检查草稿结构</button><output class="feedback" aria-live="polite"></output></form>
+<details><summary>教师讲评 · 三个追问</summary><ol><li>删掉所有具体数字，概述还能告诉读者主要变化吗？</li><li>细节有没有给两组可直接对比的数据和正确单位？</li><li>有没有忘记步行加公交，或把人数和次数混在一起？</li></ol><p>完整写作时再补图表引言、第二组细节，并按教师指定的正式篇幅完成。</p></details></section>
+
+<section class="lesson-block" id="extension"><p class="eyebrow">07 · 换一张图</p><h2>同样是出行，哪些写法要跟着变？</h2><p>课堂自编迁移数据。这里有一个增长项、一个下降项、一个不变项。切换视角后先写一句，再做判断。</p><div class="tools"><button class="btn" type="button" data-extension="2015" aria-pressed="true">2015 快照</button><button class="btn" type="button" data-extension="2025" aria-pressed="false">2025 快照</button><button class="btn" type="button" data-extension="diff" aria-pressed="false">两年变化</button></div><div class="tile"><p id="extension-reading" aria-live="polite"></p><div id="mini-chart" aria-hidden="true"></div></div>
+<form data-quiz><fieldset><legend>这次哪句适合用在概述？</legend><label><input type="radio" name="extension" data-why="迁移表显示公交仍为 5 百万次，可以写 stable。">All three modes changed considerably.</label><label><input type="radio" name="extension" data-answer="true" data-why="正确。步行下降，骑行增长，公交不变。">Walking declined and cycling became more common, while bus use remained stable.</label><label><input type="radio" name="extension" data-why="图里没有汽车数据。迁移的是读图方法。">Car use doubled.</label></fieldset><button class="action" type="submit">核对迁移题</button><output class="feedback" aria-live="polite"></output></form><details><summary>再延伸 · 如果改成百分比</summary><p>同伴把两年数据换成占当年总出行的比例。重新比较时写“share/proportion”，并说明次数不变和份额不变是两个判断。</p></details></section>
+</article></div><footer class="source-footer"><p>来源 __SOURCE__。图表为教学重绘，第二张数据图为自编迁移。</p><p>互动与草稿保留在当前页面，结构检查用于同伴互评。课堂建议时间为教学估计。</p></footer></main>
+<script>__COMMON__
+const data = __TRAVEL_DATA__;
+const labelFor = mode => data.find(row => row.key === mode).label;
+const years = ['1990','2010'];
+const readYears = new Set();
+const signed = number => number > 0 ? `+${number}` : String(number);
+for (const mode of data) {
+  const tr = document.createElement('tr');
+  [mode.label, mode.values[0], mode.values[1], signed(mode.values[1] - mode.values[0])].forEach((value, index) => {
+    const cell = document.createElement(index ? 'td' : 'th');
+    if (!index) cell.scope = 'row'; cell.textContent = value; tr.append(cell);
+  });
+  byId('values').append(tr);
+  const row = document.createElement('div'); row.className = 'chart-row';
+  const title = document.createElement('span'); title.className = 'mode-label'; title.textContent = mode.label;
+  const plots = document.createElement('div'); plots.className = 'plots';
+  for (const [index, year] of years.entries()) {
+    const value = mode.values[index];
+    const button = document.createElement('button'); button.className = 'plot'; button.type = 'button';
+    button.dataset.year = year; button.setAttribute('aria-pressed','false');
+    button.setAttribute('aria-label', `${mode.label} ${year}年 ${value}百万次`);
+    const bar = document.createElement('span'); bar.className = 'bar'; bar.style.width = `${value / 14 * 72}%`;
+    const text = document.createElement('span'); text.className='bar-stat'; text.textContent = `${year} · ${value}`;
+    button.append(bar, text); plots.append(button);
+    button.addEventListener('click', () => {
+      document.querySelectorAll('.plot').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+      feedback(byId('plot-reading'), `${mode.label}，${year} 年约 ${value} 百万次出行。`, 'right');
+      readYears.add(year); if (readYears.size === 2) done('chart');
+    });
+  }
+  const delta = document.createElement('span'); delta.className='delta'; delta.hidden = true;
+  delta.textContent = `${signed(mode.values[1] - mode.values[0])} 百万次 · 2010 对比 1990`;
+  plots.append(delta); row.append(title, plots); byId('plot-rows').append(row);
+}
+document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+  const mode = button.dataset.view;
+  document.querySelectorAll('[data-view]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+  document.querySelectorAll('.delta').forEach(delta => { delta.hidden = mode !== 'delta'; });
+  document.querySelectorAll('.plot').forEach(bar => { bar.hidden = mode !== 'both' && bar.dataset.year !== mode; });
+  feedback(byId('plot-reading'), mode === 'delta' ? '只看差值：正数为增长，负数为下降。' : '选择任一柱条读数。');
+}));
+const rank = {'1990':`${labelFor('walking')}最多，约 13 百万次。`,'2010':`${labelFor('car')}最多，约 11 百万次。`,delta:`${labelFor('walking')}下降最多，从 13 到 6，少约 7 百万次。`};
+document.querySelectorAll('[data-rank]').forEach(btn => btn.addEventListener('click', () => feedback(byId('rank-reading'), rank[btn.dataset.rank])));
+const group = new Set();
+document.querySelectorAll('[data-group]').forEach(button => button.addEventListener('click', () => {
+  const key = button.dataset.group;
+  if (group.has(key)) group.delete(key); else group.add(key);
+  button.setAttribute('aria-pressed', String(group.has(key)));
+  byId('group-reading').textContent = '';
+}));
+byId('group-check').addEventListener('click', () => {
+  const correct = ['bus','cycling','combined'];
+  if (group.size !== 3 || !correct.every(key => group.has(key))) {
+    feedback(byId('group-reading'), '步行和汽车放在第一段做对照。第二段把剩下的三个下降项归在一起。', 'wrong'); return;
+  }
+  feedback(byId('group-reading'), '正确。第二段用公交、骑行和步行加公交，有对照也有归纳。', 'right'); done('group');
+});
+const samples = {strong:['样例 1','考官肯定了主要变化和最后一段的概述，也指出部分描述缺少数据支持，呈现方式略机械。'],weak:['样例 2','考官指出有重要类别没有写到，例如步行加公交；信息组织不够清楚，细节有限。']};
+document.querySelectorAll('[data-sample]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-sample]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+  const card = byId('sample-reading'); const [heading, detail] = samples[button.dataset.sample];
+  card.querySelector('h3').textContent = heading; card.querySelector('p').textContent = detail;
+}));
+const overview = byId('draft-overview'), detail = byId('draft-detail');
+function updateCount() {
+  const wordCount = `${overview.value} ${detail.value}`.trim().split(/\s+/).filter(Boolean).length;
+  byId('draft-count').textContent = `当前约 ${wordCount} 个空格分隔词。`;
+}
+[overview, detail].forEach(field => field.addEventListener('input', updateCount));
+byId('writer').addEventListener('submit', event => {
+  event.preventDefault(); const output = event.currentTarget.querySelector('output');
+  if (!overview.value.trim() || !detail.value.trim()) { feedback(output, '先完成概述和细节两个小段。', 'wrong'); return; }
+  if (!(detail.value.match(/\d+/g) || []).slice(1).length) { feedback(output, '细节段至少写两项可比较的数据，再核对单位。', 'wrong'); return; }
+  if (!byId('check-unit').checked || !byId('check-main').checked) { feedback(output, '按提示核过单位和主变化，再勾选自检项。', 'wrong'); return; }
+  feedback(output, '已完成结构自检。请同伴核对数字、比较关系和单位。', 'right'); done('draft');
+});
+const extension = {'2015':[8,5,2],'2025':[6,5,4],diff:[-2,0,2]};
+const miniLabels = ['步行','公交','骑行'];
+const miniBars = miniLabels.map(label => {
+  const row = document.createElement('div'); row.className = 'mini-line';
+  const title = document.createElement('span'); title.textContent = label;
+  const bar = document.createElement('span'); bar.className = 'mini-bar';
+  const stat = document.createElement('strong'); row.append(title, bar, stat); byId('mini-chart').append(row);
+  return {bar, stat};
+});
+function showExtension(view) {
+  const values = extension[view]; const isDifference = view === 'diff';
+  const readout = values.map((value, index) => `${miniLabels[index]} ${isDifference ? signed(value) : value}`).join('，');
+  feedback(byId('extension-reading'), `${isDifference ? '两年变化' : view} · ${readout}（百万次）`);
+  values.forEach((value, i) => {
+    miniBars[i].stat.textContent = isDifference ? signed(value) : value;
+    miniBars[i].bar.style.width = `${Math.abs(value) / (isDifference ? 3 : 9) * 100}%`;
+    miniBars[i].bar.dataset.direction = value < 0 ? 'fall' : value === 0 ? 'steady' : 'rise';
+  });
+}
+showExtension('2015');
+document.querySelectorAll('[data-extension]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-extension]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+  showExtension(button.dataset.extension);
+}));
+</script></body></html>

@@ -103,6 +103,7 @@ export function NewConversation({bot,roomReady,onClose,originalWorkbench=true}) 
 export function Directory({workspace,selected,home,refresh,online}) {
   const [opening,setOpening]=useState(null);
   const [search,setSearch]=useState('');
+  const [category,setCategory]=useState('');
   const [adding,setAdding]=useState(null);
   const [error,setError]=useState('');
   const bots=workspace.bots.filter(bot=>bot.status==='enabled');
@@ -110,8 +111,10 @@ export function Directory({workspace,selected,home,refresh,online}) {
   const highlight=selected?bots.find(bot=>bot.id===selected):null;
   const installed=new Set(workspace.installedBots??bots.map(bot=>bot.id));
   const searchText=search.trim().normalize('NFKC').toLocaleLowerCase('zh-CN');
+  const categories=[...new Set(bots.map(bot=>bot.category))];
   const visible=(highlight?[highlight]:bots).filter(bot=>(!home||installed.has(bot.id))&&
-    [bot.name,bot.subtitle,bot.description,bot.output].join(' ').normalize('NFKC').toLocaleLowerCase('zh-CN').includes(searchText));
+    (highlight||home||!category||bot.category===category)&&
+    [bot.name,bot.category,bot.subcategory,bot.subtitle,bot.description,bot.output].join(' ').normalize('NFKC').toLocaleLowerCase('zh-CN').includes(searchText));
   useEffect(()=>setOpening(null),[selected]);
   async function install(bot) {
     if (adding || !online) return;
@@ -130,6 +133,10 @@ export function Directory({workspace,selected,home,refresh,online}) {
     {!home&&!highlight&&<div className="browse-search market-search"><Search size={17}/>
       <input type="search" aria-label="搜索 Bot" placeholder="搜索用途或 Bot 名称" maxLength={100} value={search}
         onChange={event=>setSearch(event.target.value)}/></div>}
+    {!home&&!highlight&&<div className="market-categories" role="group" aria-label="Bot 分类">
+      {['',...categories].map(item=><button key={item} type="button" className="button" aria-pressed={category===item}
+        onClick={()=>setCategory(item)}>{item||'全部'}</button>)}
+    </div>}
     {error&&<p className="form-error" role="alert">{error}</p>}
     <div className="directory-grid market-grid">
       {visible.map(bot=>{
@@ -450,7 +457,7 @@ export function Manage({workspace,refresh,notify,requestedSection,botId,revision
     <div className="manage-tabs">{sections.map(([id,label])=><button key={id} aria-pressed={section===id} className="button"
       onClick={()=>routeTo(id==='versions'?'manage':'manage/'+id)}>{label}</button>)}</div>
     {busy&&<p className="muted" role="status">正在处理维护操作…</p>}
-    {section==='versions'&&<div className="management-stack">{[...workspace.bots].reverse().map(bot=><section className="manage-card" key={bot.id+'/'+bot.revision}>
+    {section==='versions'&&<div className="management-stack">{workspace.bots.filter(bot=>bot.kind!=='teaching').reverse().map(bot=><section className="manage-card" key={bot.id+'/'+bot.revision}>
       <div className="manage-head"><BotMark kind={bot.kind}/><h2
         ref={bot.status==='disabled'&&retired===bot.id+'/'+bot.revision?retiredHeading:
           versionKey===bot.id+'/'+bot.revision?versionHeading:null} tabIndex={-1}>{bot.name} <span className="version">r{bot.revision}</span></h2>

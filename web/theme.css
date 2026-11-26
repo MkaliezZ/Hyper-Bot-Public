@@ -887,3 +887,27 @@ label.checkbox { display: flex; align-items: center; }
   .workspace-switch:active { transform: none; }
 }
 
+.specialist-chat:not(:has(.specialist-preview)) { grid-template-columns: minmax(0,1fr); }
+.specialist-chat .thread-body { max-width: 780px; margin-inline: auto; padding: 24px; }
+.specialist-chat .thread-head p { color: var(--muted); }
+.teach-fields { display: grid; align-content: start; gap: 12px; min-width: 0; }
+.teach-fields label { display: grid; gap: 4px; font-size: 13px; }
+.teach-fields :is(input:not([type=checkbox]),select,textarea) { width: 100%; min-width: 0; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; font: inherit; background: white; color: #171717; }
+.teach-fields fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.teach-fields .teach-choice { display: flex; align-items: baseline; gap: 8px; padding-block: 5px; }
+.teach-choice small { display: block; color: var(--muted); }
+.teach-session { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.teach-preview-frame { width: 100%; height: clamp(280px,55vh,680px); border: 1px solid var(--line); background: white; }
+.teaching-chat .compose-wrap { max-height: 49%; overflow: auto; }
+.teaching-chat .preview-content { display: block; }
+.teaching-chat .preview-content > * { margin-block-end: 12px; }
+.teaching-chat dd { margin-inline-start: 14px; overflow-wrap: anywhere; }
+.teaching-chat .preview-content dl > div { padding-block: 3px; }
+@media (max-width:760px) {
+  .specialist-chat.with-preview .preview-toggle { display: inline-flex; }
+  .specialist-chat:not(.specialist-preview-open) .specialist-preview { display: none; }
+}
+.market-categories { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.market-categories [aria-pressed=true] { border-color:var(--accent); }
+.teaching-answer { white-space:pre-wrap; overflow-wrap:anywhere; }
+.teaching-answer .byline { margin-top:8px; }

@@ -1,0 +1,29 @@
+{
+  "methods": [
+    { "id": "single_choice", "label": "单选", "group": "traditional", "description": "选择符合材料的一项。" },
+    { "id": "short_fill", "label": "短填空", "group": "traditional", "description": "从语境回忆词、短语或句型。" },
+    { "id": "judgment_evidence", "label": "判断＋证据", "group": "traditional", "description": "判断说法并指出原文依据。" },
+    { "id": "short_response", "label": "短表达", "group": "traditional", "description": "根据指定情境用短句表达。" },
+    { "id": "editing", "label": "校园小编辑", "group": "activity", "description": "修订英文草稿，保留正确的信息。" },
+    { "id": "sequencing", "label": "语篇拼图", "group": "activity", "description": "重组句卡并标出排序线索。" },
+    { "id": "planning", "label": "多材料活动策划", "group": "activity", "description": "对照不同信息，写出可执行的安排。" },
+    { "id": "branching", "label": "分支对话", "group": "activity", "description": "补问遗漏信息，再根据回复确认安排。" },
+    { "id": "relationship_map", "label": "课文关系图", "group": "activity", "description": "用连线表示课文里的因果、条件或其他关系。" },
+    { "id": "route", "label": "读地图走路线", "group": "activity", "requires": "picture", "description": "结合示意图和英文线索标出路线。" },
+    { "id": "rule_discovery", "label": "规则侦探", "group": "activity", "description": "从例句归纳用法，再用在新情境。" },
+    { "id": "rule_flip", "label": "改一个词，让答案翻转", "group": "activity", "description": "只改变一条条件，让原来的结论发生变化。" },
+    { "id": "student_questions", "label": "学生当出题人", "group": "activity", "description": "用原文设计一道题，自写答案并标依据。" },
+    { "id": "audience_messages", "label": "同一通知发给两个人", "group": "activity", "description": "给两位读者各写一条消息，按需求取舍信息。" },
+    { "id": "comic", "label": "给漫画加对白", "group": "activity", "requires": "picture", "description": "在分格情境中完成提问、回应和确认。" },
+    { "id": "dictogloss", "label": "听广播，重建通知", "group": "activity", "requires": "audio", "description": "听短材料、记关键词，再自行重建信息。" },
+    { "id": "listening_numbers", "label": "听数字，填报名卡", "group": "activity", "requires": "audio", "description": "听辨日期、时间或数量，填写记录卡。" },
+    { "id": "predict_verify", "label": "静音预判，开声核对", "group": "activity", "requires": "audio", "description": "用画面或线索做预测，再用听到的内容修订。" },
+    { "id": "voice_revision", "label": "语音留言，回听重录", "group": "activity", "description": "口述给同伴的留言，对照清单改进后重录。" }
+  ],
+  "sequences": [
+    { "id": "standard", "label": "常规练习", "description": "完成当次练习，教师按要点核对。" },
+    { "id": "scaffold", "label": "范例 → 半成品 → 独立做", "description": "先看范例和部分步骤，再独立完成主任务。" },
+    { "id": "revise", "label": "首答 → 错因提示 → 自改", "description": "先保留首答，再用提示自行订正。" },
+    { "id": "spaced", "label": "后续练习换情境再测", "description": "附可另发的复练卡，换情境无提示作答。" }
+  ]
+}

@@ -7,6 +7,7 @@ import { DSH_VERSION, HERMES_REVISION, root } from './config.mjs';
 import { relatedProjectVersions } from './history.mjs';
 import { activeMaterial, hidesArtifact, materialMetadata, materialVisibleIn, visibleArtifact } from './materials.mjs';
 import { currentMemory } from './workspace-memory.mjs';
+import { teachingBot } from './teaching-catalog.mjs';
 
 export const at = () => new Date().toISOString();
 export const isLive = run => Object.hasOwn(ALLOWED, run.state);
@@ -20,10 +21,14 @@ export const runOf = (state,id) => get(state.runs,id,'任务不存在。');
 export const allArtifacts = state => [...state.artifacts, ...(state.retiredArtifacts ?? [])];
 export const artifactOf = (state,id) => get(allArtifacts(state),id,'稿件版本不存在。');
 export const skillOf = (state,id) => get(state.skills,id,'Skill 版本不存在。');
-export const botOf = (state,id,revision) => {
-  const item = state.bots.find(bot=>bot.id === id && bot.revision === revision);
-  if (!item) throw new Problem(404,'Bot 版本不存在。');
+export const registeredBotOf = (state,id,revision) => {
+  const item=state.bots.find(bot=>bot.id===id&&bot.revision===revision);
+  if(!item)throw new Problem(404,'Bot 版本不存在。');
   return item;
+};
+export const botOf = (state,id,revision) => {
+  const builtIn=teachingBot(id,revision);
+  return builtIn&&!state.bots.some(bot=>bot.id===id)?builtIn:registeredBotOf(state,id,revision);
 };
 
 async function initial() {
@@ -134,7 +139,7 @@ export class Store {
 }
 
 export function publicRun(run) {
-  const { plan, approval, materialIds, generation, accounting, followUpDraftStamp, memoryRefs, ...info } = run;
+  const { plan, approval, materialIds, generation, accounting, followUpDraftStamp, memoryRefs, teachingEvidence, ...info } = run;
   const preview = run.state === 'waiting_approval' ? plan?.result : undefined;
   return {...info,materialIds,preview,
     ...(preview&&plan?.timing?{previewTiming:plan.timing}:{}),
@@ -178,7 +183,7 @@ export function withScriptEvidence(record,run) {
 
 export function roomView(state,id) {
   const room = conversationOf(state,id);
-  const { draft, draftRetry, draftProposal, draftStamp, handoffRequest, ...info } = room;
+  const { draft, draftRetry, draftProposal, draftStamp, handoffRequest, teachingProject, trialTeachingProject, teachingTaskIds, ...info } = room;
   const current=draft??{text:'',attachments:[],base:null};
   const retry=draftRetry?.digest===sha(JSON.stringify(current))?draftRetry.id:null;
   const records=allArtifacts(state);

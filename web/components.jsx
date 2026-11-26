@@ -1,10 +1,10 @@
 import React from 'react';
-import { AudioLines, ChevronRight, FileText, ShieldCheck } from 'lucide-react';
+import { AudioLines, ChevronRight, FileText, GraduationCap, ShieldCheck } from 'lucide-react';
 import { phases, runHref } from './client.js';
 
-export function BotMark({kind,className=''}) {
+export function BotMark({bot,kind=bot?.kind,className=''}) {
   return <span className={'bot-mark '+kind+' '+className} aria-hidden="true">
-    {kind==='brief'?<FileText/>:<AudioLines/>}
+    {kind==='brief'?<FileText/>:kind==='teaching'?<GraduationCap/>:<AudioLines/>}
   </span>;
 }
 

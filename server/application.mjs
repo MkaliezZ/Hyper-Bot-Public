@@ -6,6 +6,8 @@ import { at, allArtifacts, artifactOf, botOf, conversationOf, draftToken, isLive
 import { approvedMethodsForRun, botBlock, Registry } from './registry.mjs';
 import { dependencyStatus, inspectDependencies, inspectRuntimeInstallation } from './config.mjs';
 import { unusedMeter } from './provider.mjs';
+import { teachingBot, teachingDirectory } from './teaching-catalog.mjs';
+import { generateTeachingReply } from './teaching-assistant.mjs';
 import { receiptReport, storeAccounting, upstreamMode } from './run-receipts.mjs';
 import { materializeExample } from './bot-sample.mjs';
 import { changeMemory, listMemories, memoryChanged, memoryContext, memoryRefsFor } from './workspace-memory.mjs';
@@ -25,6 +27,7 @@ const roomInput = z.strictObject({ botId:botKey, revision:z.number().int().posit
   projectStorage:z.string().regex(/^[a-f0-9]{64}$/).optional(),
   simulation:z.boolean().default(false),example:z.boolean().default(false),handoff:handoffInput.optional() });
 const installInput = z.strictObject({botId:botKey});
+const teachingAssistantInput=z.strictObject({requestId:id,text:message,evidence:z.string().trim().max(16000).default('')});
 function installedBots(state) {
   return [...new Set([...(state.installedBots??state.bots.filter(bot=>bot.qualification==='pinned-dev').map(bot=>bot.id)),
     ...state.conversations.map(room=>room.botId)])];
@@ -235,8 +238,10 @@ export class HyperBot {
     }
     return {
       version,...registry,materialRetention:true,originalWorkbench:this.config.allowOriginalWorkbench!==false,
+      bots:[...registry.bots.map(bot=>({...bot,category:'自媒体'})),
+        ...teachingDirectory(this.config).filter(bot=>!state.bots.some(item=>item.id===bot.id))],
       installedBots:installedBots(state),
-      conversations: conversations.map(({draft,draftRetry,draftProposal,draftStamp,handoffRequest,...room})=>room)
+      conversations: conversations.map(({draft,draftRetry,draftProposal,draftStamp,handoffRequest,teachingProject,trialTeachingProject,teachingTaskIds,...room})=>room)
         .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)),
       active:runs.filter(isLive).map(publicRun).at(-1) ?? null,
       pendingWriteChecks:runs.filter(needsWriteCheck).length,localDependencies:dependencyStatus(this.config)
@@ -379,7 +384,7 @@ export class HyperBot {
     const {botId}=installInput.parse(raw);
     return this.store.change(state=>{
       const bot=state.bots.filter(item=>item.id===botId&&item.status==='enabled')
-        .sort((a,b)=>b.revision-a.revision)[0];
+        .sort((a,b)=>b.revision-a.revision)[0]??(!state.bots.some(item=>item.id===botId)?teachingBot(botId,1):undefined);
       if (!bot) throw new Problem(404,'没有可添加的 Bot 版本。','not_found');
       const existing=state.conversations.filter(room=>room.botId===botId)
         .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))[0];
@@ -399,6 +404,9 @@ export class HyperBot {
     if (replay) return replay;
     const candidate=botOf(snapshot,input.botId,input.revision);
     if (candidate.status!=='enabled') throw new Problem(409,'这个 Bot 版本还未启用。');
+    if(candidate.kind==='teaching'&&(input.example||handoff||input.simulation)){
+      throw new Problem(422,'请从教培 Bot 会话打开任务。','teaching_scope');
+    }
     if (input.project && candidate.kind!=='script') throw new Problem(422,'此 Bot 使用 Hyper Bot 内部成果库。');
     if ((input.projectScope && (!input.project || !input.projectStorage || input.example)) ||
         (!input.projectScope && input.projectStorage)) {
@@ -572,9 +580,12 @@ export class HyperBot {
     const signature=payloadHash({roomId,...input});
     const priorRun=state=>state.runs.find(row=>row.clientRequestId===input.clientRequestId);
     const initial=this.store.read();
+    const selected=conversationOf(initial,roomId);
+    if(botOf(initial,selected.botId,selected.revision).kind==='teaching'){
+      throw new Problem(422,'请使用教培 Bot 的任务入口。','teaching_scope');
+    }
     if (!priorRun(initial) && !initial.runs.some(isLive) && !this.registry.testing) {
-      const room=conversationOf(initial,roomId);
-      const bot=botOf(initial,room.botId,room.revision);
+      const bot=botOf(initial,selected.botId,selected.revision);
       if (bot.status==='enabled' && !botBlock(initial,this.config,bot)) {
         try { await this.registry.checkSources(bot); }
         catch (error) { if (!priorRun(this.store.read())) throw error; }
@@ -636,6 +647,53 @@ export class HyperBot {
     });
     if (newly) this.track(run.id,signal=>this.generate(run.id,signal));
     return publicRun(run);
+  }
+
+  startTeachingAssistant(roomId,raw) {
+    const input=teachingAssistantInput.parse(raw);
+    const signature=payloadHash({roomId,input});
+    const {run,fresh}=this.store.change((state,emit)=>{
+      const room=conversationOf(state,roomId);
+      const bot=botOf(state,room.botId,room.revision);
+      if(bot.kind!=='teaching'||bot.target!=='bot'||this.config.teachingAccess==='teacher') {
+        throw new Problem(404,'当前会话没有本机教培任务助手。','teaching_scope');
+      }
+      const prior=state.runs.find(item=>item.clientRequestId===input.requestId);
+      if(prior){
+        if(prior.signature!==signature)throw new Problem(409,'这个任务编号已用于不同任务。','duplicate_request');
+        return {run:prior,fresh:false};
+      }
+      if(this.closing||this.runtimeChanging||this.cleaning||this.registry.testing||state.runs.some(isLive)){
+        throw new Problem(409,'请等当前工作区任务结束后再发送。','busy');
+      }
+      const credential=dependencyStatus(this.config).checks.provider;
+      if(!credential.ok)throw new Problem(503,credential.reason,'dependency_unavailable');
+      const now=at();
+      const run={id:randomUUID(),clientRequestId:input.requestId,signature,conversation:roomId,botId:bot.id,
+        botRevision:bot.revision,kind:bot.kind,driver:'deepseek',prompt:input.text,materialIds:[],teachingEvidence:input.evidence,
+        createdAt:now,updatedAt:now,state:'queued',usage:unusedMeter(),recovery:null,
+        model:this.config.model,modelMode:upstreamMode(this.config)};
+      state.runs.push(run);
+      room.updatedAt=now;
+      emit(run,'accepted',{role:'user',state:'queued'});
+      return {run,fresh:true};
+    });
+    if(fresh)this.track(run.id,signal=>this.runTeachingAssistant(run,signal));
+    return publicRun(run);
+  }
+
+  async runTeachingAssistant(job,signal) {
+    let usage;
+    try {
+      signal.throwIfAborted();
+      this.store.change((state,emit)=>this.store.transition(state,emit,runOf(state,job.id),'running'));
+      const history=this.store.read().runs.filter(row=>row.conversation===job.conversation&&row.state==='succeeded'&&row.teachingReply).slice(-3);
+      const teachingReply=await generateTeachingReply(this.config,history,job,signal,value=>{usage=value;});
+      signal.throwIfAborted();
+      this.store.change((state,emit)=>this.store.transition(state,emit,runOf(state,job.id),'succeeded',{teachingReply,usage}));
+    } catch(error){
+      this.generationFailed(job.id,error,signal,usage);
+    }
   }
 
   track(id,callback) {

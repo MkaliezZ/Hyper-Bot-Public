@@ -1,7 +1,7 @@
 {
   "name": "hyper-bot",
   "productName": "Hyper Bot",
-  "version": "0.1.0-dev.58",
+  "version": "0.1.0-dev.59",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,14 +15,19 @@
     "check": "node --test test/contracts.test.mjs test/workspace-archive.test.mjs",
     "doctor": "node scripts/doctor.mjs",
     "test:integration": "node scripts/integration.mjs",
-    "workspace": "node scripts/workspace.mjs"
+    "test:teaching": "node --test test/teaching-integration.test.mjs",
+    "workspace": "node scripts/workspace.mjs",
+    "setup:teaching": "node scripts/setup-teaching.mjs"
   },
   "dependencies": {
     "@deepseek-ai/dsh-sdk-client": "0.2.2-rc.1",
+    "@fastify/multipart": "9.4.0",
+    "fastify": "5.12.8",
     "fflate": "0.8.3",
     "lucide-react": "0.468.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
+    "tsx": "4.23.15",
     "zod": "4.6.7"
   },
   "devDependencies": {
