@@ -2,19 +2,31 @@
 
 把 [Hyper Bot 公库](https://github.com/MkaliezZ/Hyper-Bot-Public)交给能在目标电脑上执行命令的 Agent，请它按本说明安装并验收。Hyper Bot 自带英语教培服务和模板。课件、练习和业务记录存放在各自的本机工作区。初次安装需要网络，供 Agent 克隆仓库和下载依赖。
 
-Agent 应先检查本机的 Git、Node.js 和 Python 版本，缺失时通过系统包管理器或官方安装包补齐，再打开新终端确认命令可用。[Git 安装](https://git-scm.com/install/)、[Node.js 下载](https://nodejs.org/en/download)、[Python 下载](https://www.python.org/downloads/)。
+Agent 默认执行完整部署。优先复用符合版本的工具，为缺项执行安装。新部署推荐原生架构的 Python 3.11，各组件使用独立虚拟环境。Hermes ACP 接受 Python 3.11–3.13，已有 Python 3.14 也可继续用于教培。[Git 安装](https://git-scm.com/install/)、[Node.js 下载](https://nodejs.org/en/download)、[Python 下载](https://www.python.org/downloads/)。
 
 ## Windows x64
 
-准备 Git、Node.js 24.9 或更新版本、npm 和 Python 3.11 或更新版本。新装建议选用 Python 3.14 x64，并让 PowerShell 能找到 `python.exe`。
+检查 `git --version`、`node --version`、`py -3.11 --version`、`ffmpeg -version` 和 `ffprobe -version`。只为缺失项执行对应的命令。
 
 ~~~powershell
-git clone https://github.com/MkaliezZ/Hyper-Bot-Public.git
+winget install --exact --id Git.Git
+winget install --exact --id OpenJS.NodeJS.LTS
+winget install --exact --id Python.Python.3.11
+winget install --exact --id Gyan.FFmpeg
+winget install --exact --id "Microsoft.VCRedist.2015+.x64"
+~~~
+
+Visual C++ 运行库供 Windows 上的语音识别二进制使用，已有兼容版本时可复用。打开新终端使 PATH 生效。[CTranslate2 安装要求](https://opennmt.net/CTranslate2/installation.html)。
+
+FFmpeg 也可以从本机已有安装复用，设置 `$env:HYPER_BOT_FFMPEG_DIR` 为同时包含 `ffmpeg.exe` 和 `ffprobe.exe` 的绝对目录。Agent 从新或已有的公库源码目录执行部署。如果使用其他受支持的 Python，将 `$hbPython` 指向其实际解释器。
+
+~~~powershell
+git clone --branch main https://github.com/MkaliezZ/Hyper-Bot-Public.git
 cd Hyper-Bot-Public
-node --version
-python --version
-npm.cmd ci
-npm.cmd run setup:teaching -- python
+$hbPython = (& py -3.11 -c "import sys; print(sys.executable)").Trim()
+npm.cmd ci --include=optional
+npm.cmd run setup:teaching -- $hbPython
+npm.cmd run setup:integrations -- $hbPython
 npm.cmd run build
 npm.cmd run doctor
 npm.cmd run test:teaching
@@ -22,19 +34,19 @@ npm.cmd run test:group
 npm.cmd start
 ~~~
 
-在浏览器打开 [Hyper Bot](http://127.0.0.1:4367/)。Windows 源码安装也可以用 `npm.cmd run desktop` 打开桌面窗口。
+在浏览器打开启动命令打印的本机地址。Windows 源码安装也可运行 `npm.cmd run desktop` 启动桌面客户端。
 
 ## macOS
 
-准备 Git、Node.js 24.9 或更新版本、npm 和 Python 3.11 或更新版本。新装建议选用 Python 3.14。Apple Silicon 使用 arm64 的 Node.js 和 Python，Intel Mac 使用 x86_64。Agent 应选实际安装的 Python 命令或绝对路径，例如 `python3.14`。
+Apple Silicon 用 arm64，Intel Mac 用 x86_64。用 `node -p process.arch` 和 `python3.11 -c "import platform; print(platform.machine())"` 检查架构。Homebrew 已可用时，按缺项执行 `brew install git`、`brew install node@24`、`brew install python@3.11` 或 `brew install ffmpeg`。使用 Homebrew 的 `node@24` 时，将 `$(brew --prefix node@24)/bin` 加到终端和启动进程的 PATH 前面。若没有 Homebrew，使用目标电脑可用的系统包管理器或官方安装包，并在执行后确认版本。[FFmpeg 下载](https://ffmpeg.org/download.html)、[Homebrew FFmpeg](https://formulae.brew.sh/formula/ffmpeg)。
 
 ~~~sh
-git clone https://github.com/MkaliezZ/Hyper-Bot-Public.git
+git clone --branch main https://github.com/MkaliezZ/Hyper-Bot-Public.git
 cd Hyper-Bot-Public
-node --version
-python3.14 --version
-npm ci
-npm run setup:teaching -- python3.14
+hb_python="$(command -v python3.11)"
+npm ci --include=optional
+npm run setup:teaching -- "$hb_python"
+npm run setup:integrations -- "$hb_python"
 npm run build
 npm run doctor
 npm run test:teaching
@@ -42,7 +54,20 @@ npm run test:group
 npm start
 ~~~
 
-在浏览器打开 [Hyper Bot](http://127.0.0.1:4367/)。这套步骤部署源码和本机浏览器入口。运行中的 `npm start` 进程提供服务。
+在浏览器打开启动命令打印的本机地址。运行中的 `npm start` 进程提供服务。
+
+## 集成安装与验收
+
+`setup:integrations` 会拉取锁定的 Self Media Workbench 与 Hermes Agent 源码，校验 FFmpeg 和 FFprobe，在独立环境安装 `requirements-asr.txt` 和可编辑安装的 `.[acp]`。它会下载锁定的多语种 faster-whisper base 权重并验证 CPU 离线加载。模型权重约 145 MB，首次下载需要留出时间和磁盘空间。重复运行会复用已有的源码、虚拟环境和完整模型文件。首次部署需要访问 GitHub、npm、PyPI 和 Hugging Face。[Self Media Workbench](https://github.com/MkaliezZ/self-media-workbench/tree/59589fc365e084de9b9bd0759714c07eaabd9b7b)、[Hermes ACP](https://github.com/NousResearch/hermes-agent/tree/0a62610f10cc34d696b2239b2c69fa1ba0f1ca63)、[语音模型](https://huggingface.co/Systran/faster-whisper-base/tree/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66)。
+
+首次下载默认走标准 HTTPS。下载中断后，在同一目录重跑安装命令可复用下载缓存。已有明确配置的 `HF_HUB_DISABLE_XET` 仍然生效。[Hugging Face 下载环境变量](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hf_hub_disable_xet)。
+
+路径保存在仓库的 `.hyper-bot/agent-runtimes.env`，启动应用和 `doctor` 时会自动读取。明确设置的启动变量及桌面单独登记的路径优先。若校验指向过时的路径，Agent 检查当前启动环境和登记项。配置仅记录路径和运行选项。模型凭据通过授权的启动环境传入。
+
+1. 从新终端运行 `npm run doctor`。确认 `dsh.installed`、`dsh.webHost`、`workbench.ok`、`hermes.ok`、`teaching.ok` 和 `teaching.lessons.ok` 均为 true。
+2. 在「Bot广场 → 自媒体」用合成短视频试跑「自动剪辑」并下载 MP4。再用含清晰语音的合成录音试跑「语音转录」，确认能看到实际逐字稿。Agent 可用 macOS 的 `say` 或 Windows 的 `System.Speech` 生成测试语音。用英文合成录音时，可为隔离测试进程设置 `SELF_MEDIA_LANGUAGE=en`。
+3. 复用用户授权的 `DEEPSEEK_API_KEY` 试跑「素材简报」和模型对话。缺少凭据时，可用 `npm run test:integration` 的本机模型协议夹具校验 DSH 和 Hermes。先完成本地验收，再说明哪些在线任务等待凭据。
+4. 仅部署英语教培时可跳过 `setup:integrations`。教培课件、练习和记录使用内置运行时。
 
 ## 更新已有部署
 
@@ -84,41 +109,3 @@ id,track,asOf,endOn,observedThrough,renewed,arm,randomized,experimentId,feedback
 导入续费名单后，可在「续费与跟进」登记联系结果。登记学员后，可在「课程段关联」选取课程段，在「学习记录」选取已生成的课件或练习。
 
 如果 4367 端口已占用，Agent 可以为新进程选用空闲端口并设置 `HYPER_BOT_PORT`，再把实际地址交给用户。依赖检查失败时，先确认当前 Node.js、Python 和仓库路径，再重跑相应的安装步骤。
-
-
-## 启用自媒体专项 Bot
-
-「自媒体」下的 20 个专项 Bot 使用独立的 Self Media Workbench。使用英语教培时，沿用前面 Hyper Bot 自带的教培依赖。先安装锁定版本的自媒体工作台，并设置其仓库根目录与 Python 解释器，随后重新启动 Hyper Bot。[Self Media Workbench 固定提交](https://github.com/MkaliezZ/self-media-workbench/tree/59589fc365e084de9b9bd0759714c07eaabd9b7b)。
-
-在 Hyper Bot 源码目录打开终端，把工作台克隆到同级目录。
-
-~~~sh
-git clone https://github.com/MkaliezZ/self-media-workbench.git ../self-media-workbench
-git -C ../self-media-workbench checkout --detach 59589fc365e084de9b9bd0759714c07eaabd9b7b
-~~~
-
-macOS 在同一个终端执行以下命令。示例使用工作台支持的 Python 3.11，替换为本机实际安装的命令即可。
-
-~~~sh
-export HYPER_BOT_WORKBENCH_ROOT="$(cd ../self-media-workbench && pwd -P)"
-python3.11 -m venv "$HYPER_BOT_WORKBENCH_ROOT/.venv"
-export HYPER_BOT_WORKBENCH_PYTHON="$HYPER_BOT_WORKBENCH_ROOT/.venv/bin/python"
-"$HYPER_BOT_WORKBENCH_PYTHON" -m pip install -r "$HYPER_BOT_WORKBENCH_ROOT/requirements.txt"
-npm run doctor
-~~~
-
-Windows PowerShell 在同一个终端执行以下命令，使用实际安装的 Python 3.11 或更新版本。
-
-~~~powershell
-$env:HYPER_BOT_WORKBENCH_ROOT = (Resolve-Path ../self-media-workbench).Path
-python -m venv "$env:HYPER_BOT_WORKBENCH_ROOT/.venv"
-$env:HYPER_BOT_WORKBENCH_PYTHON = "$env:HYPER_BOT_WORKBENCH_ROOT/.venv/Scripts/python.exe"
-& $env:HYPER_BOT_WORKBENCH_PYTHON -m pip install -r "$env:HYPER_BOT_WORKBENCH_ROOT/requirements.txt"
-npm.cmd run doctor
-~~~
-
-- 查看 `doctor` 的 `workbench.ok`。账号分析、对标拆解、选题等模型任务还需要在同一启动环境提供自己的 `DEEPSEEK_API_KEY`。
-- 剪辑、打点和成片导出需要 FFmpeg 与 FFprobe。确保两个命令在启动进程的 PATH 里，或将 `HYPER_BOT_FFMPEG_DIR` 指向同时包含两者的绝对目录。
-- 转录和字幕使用另行安装的语音模型。根据目标电脑安装 Workbench 的 `requirements-asr.txt` 或 Apple Silicon 的 `requirements-mlx.txt`，并在 Hyper Bot 启动环境中设置 `SELF_MEDIA_MODEL`（CTranslate2 模型目录）或 `SELF_MEDIA_MLX_MODEL`（MLX 模型目录）。可选地令 `SELF_MEDIA_ASR_BACKEND` 和 `SELF_MEDIA_DEVICE` 匹配实际设备。[语音模型和平台说明](https://github.com/MkaliezZ/self-media-workbench/blob/59589fc365e084de9b9bd0759714c07eaabd9b7b/README.md)。
-
-确认「Bot广场 → 自媒体」出现 22 个 Bot，再用合成短片试跑「自动剪辑」并下载 MP4。只有启用相应的运行依赖后，对应任务才会执行。

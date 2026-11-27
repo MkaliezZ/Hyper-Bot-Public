@@ -4,12 +4,13 @@ import { lstat, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { parseEnv, promisify } from 'node:util';
 import { createRequire } from 'node:module';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Problem } from './contracts.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const agentRuntimeSettingsFile=path.join(root,'.hyper-bot','agent-runtimes.env');
 export const teachingRuntimeRoot=path.join(root,'teaching');
 const portableTeachingPython=path.join(teachingRuntimeRoot,'python','python.exe');
 export const teachingPythonHome=path.join(root,'.hyper-bot','teaching-python');
@@ -247,15 +248,19 @@ export async function configFor(options = {}) {
   };
   const runtimes=options.desktopInstallations;
   const selected=runtimes?.overrides??{};
+  const installed=await readFile(agentRuntimeSettingsFile,'utf8').then(parseEnv,error=>{
+    if(error.code==='ENOENT')return {};
+    throw error;
+  });
   const model = options.model ?? (process.env.HYPER_BOT_MODEL?.trim() || 'deepseek-v4-flash');
-  const hermesRoot = process.env.HYPER_BOT_HERMES_ROOT ?? path.join(platformHome, 'hermes', 'hermes-agent');
-  const hermesPython = process.env.HYPER_BOT_HERMES_PYTHON ?? path.join(hermesRoot, 'venv',
+  const hermesRoot = process.env.HYPER_BOT_HERMES_ROOT ?? installed.HYPER_BOT_HERMES_ROOT ?? path.join(platformHome, 'hermes', 'hermes-agent');
+  const hermesPython = process.env.HYPER_BOT_HERMES_PYTHON ?? installed.HYPER_BOT_HERMES_PYTHON ?? path.join(hermesRoot, 'venv',
     process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
   const installation=await resolveInstallation();
-  const local={workbenchRoot:selected.workbench?.root??(process.env.HYPER_BOT_WORKBENCH_ROOT||installation.root),
-    workbenchPython:selected.workbench?.python??(process.env.HYPER_BOT_WORKBENCH_PYTHON||installation.python||(process.platform==='win32'?'python':'python3')),
+  const local={workbenchRoot:selected.workbench?.root??(process.env.HYPER_BOT_WORKBENCH_ROOT||installed.HYPER_BOT_WORKBENCH_ROOT||installation.root),
+    workbenchPython:selected.workbench?.python??(process.env.HYPER_BOT_WORKBENCH_PYTHON||installed.HYPER_BOT_WORKBENCH_PYTHON||installation.python||(process.platform==='win32'?'python':'python3')),
     hermesRoot:selected.hermes?.root??hermesRoot,hermesPython:selected.hermes?.python??hermesPython};
-  return {data,key,provider,model,runtimes,teachingAccess:process.env.HYPER_BOT_TEACHING_ACCESS==='teacher'?'teacher':'trial',...local,...await inspectDependencies(local),
+  return {data,key,provider,model,runtimes,agentRuntimeSettings:installed,teachingAccess:process.env.HYPER_BOT_TEACHING_ACCESS==='teacher'?'teacher':'trial',...local,...await inspectDependencies(local),
     originalWorkbenchState:options.originalWorkbenchState ?? process.env.SELF_MEDIA_STATE_DIR,
     originalWorkbenchData:options.originalWorkbenchData ?? process.env.SELF_MEDIA_DATA_DIR,
     temp:tmpdir(),upstream:options.upstream??'https://api.deepseek.com',timeoutMs:options.timeoutMs??90000};

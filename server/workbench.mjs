@@ -58,10 +58,14 @@ export class Workbench {
     await requireRuntimeSource(this.config,'workbench');
     // Workbench adds generated file names and temporary suffixes under this directory.
     const state = path.toNamespacedPath(await realpath(this.data));
-    const speech=Object.fromEntries(speechSettings.flatMap(name=>process.env[name]===undefined?[]:[[name,process.env[name]]]));
+    const configured=name=>process.env[name]??this.config.agentRuntimeSettings?.[name];
+    const speech=Object.fromEntries(speechSettings.flatMap(name=>{
+      const value=configured(name);
+      return value===undefined?[]:[[name,value]];
+    }));
     const env=processEnvironment({...speech,SELF_MEDIA_STATE_DIR:state,SELF_MEDIA_DATA_DIR:path.join(state,'projects'),
       PYTHONDONTWRITEBYTECODE:'1',PYTHONUTF8:'1',HYPER_BOT_WORKBENCH_BRIDGE:this.bridgeKey});
-    const ffmpeg=process.env.HYPER_BOT_FFMPEG_DIR?.trim();
+    const ffmpeg=configured('HYPER_BOT_FFMPEG_DIR')?.trim();
     if (ffmpeg) {
       const extension=process.platform==='win32'?'.exe':'';
       const binaries=await Promise.all(['ffmpeg','ffprobe'].map(name=>stat(path.join(ffmpeg,name+extension)).catch(()=>null)));
