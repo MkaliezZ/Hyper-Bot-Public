@@ -104,6 +104,7 @@ export function Directory({workspace,selected,home,refresh,online}) {
   const [opening,setOpening]=useState(null);
   const [search,setSearch]=useState('');
   const [category,setCategory]=useState('');
+  const [subcategory,setSubcategory]=useState('');
   const [adding,setAdding]=useState(null);
   const [error,setError]=useState('');
   const bots=workspace.bots.filter(bot=>bot.status==='enabled');
@@ -112,8 +113,9 @@ export function Directory({workspace,selected,home,refresh,online}) {
   const installed=new Set(workspace.installedBots??bots.map(bot=>bot.id));
   const searchText=search.trim().normalize('NFKC').toLocaleLowerCase('zh-CN');
   const categories=[...new Set(bots.map(bot=>bot.category))];
-  const visible=(highlight?[highlight]:bots).filter(bot=>(!home||installed.has(bot.id))&&
-    (highlight||home||!category||bot.category===category)&&
+  const subcategories=[...new Set(bots.filter(bot=>bot.category===category).map(bot=>bot.subcategory??'通用'))];
+  const visible=highlight?[highlight]:bots.filter(bot=>(home?installed.has(bot.id):
+    (!category||bot.category===category)&&(!subcategory||(bot.subcategory??'通用')===subcategory))&&
     [bot.name,bot.category,bot.subcategory,bot.subtitle,bot.description,bot.output].join(' ').normalize('NFKC').toLocaleLowerCase('zh-CN').includes(searchText));
   useEffect(()=>setOpening(null),[selected]);
   async function install(bot) {
@@ -127,23 +129,29 @@ export function Directory({workspace,selected,home,refresh,online}) {
     finally {setAdding(null);}
   }
   return <>
-    <div className="section-head"><div><h1>{highlight?.name ?? (home?workspace.workspace.name:'Bot 市场')}</h1>
-      <p>{highlight?.subtitle ?? (home?'继续一个对话，或在市场添加专项 Bot。':'按用途找 Bot，添加到「'+workspace.workspace.name+'」。')}</p></div>
-      {home&&<a href="#bots" className="button">打开 Bot 市场<ArrowRight size={16}/></a>}</div>
+    <div className="section-head"><div><h1>{highlight?.name ?? (home?workspace.workspace.name:'Bot广场')}</h1>
+      <p>{highlight?.subtitle ?? (home?'继续一个对话，或在 Bot广场添加专项 Bot。':'按用途找 Bot，添加到「'+workspace.workspace.name+'」。')}</p></div>
+      {home&&<a href="#bots" className="button">打开 Bot广场<ArrowRight size={16}/></a>}</div>
     {!home&&!highlight&&<div className="browse-search market-search"><Search size={17}/>
       <input type="search" aria-label="搜索 Bot" placeholder="搜索用途或 Bot 名称" maxLength={100} value={search}
         onChange={event=>setSearch(event.target.value)}/></div>}
-    {!home&&!highlight&&<div className="market-categories" role="group" aria-label="Bot 分类">
-      {['',...categories].map(item=><button key={item} type="button" className="button" aria-pressed={category===item}
-        onClick={()=>setCategory(item)}>{item||'全部'}</button>)}
+    {!home&&!highlight&&<div className="market-filters">
+      <div className="category-strip" role="group" aria-label="Bot 分类">
+        {['',...categories].map(item=><button key={item} type="button" aria-pressed={category===item}
+          onClick={()=>{setCategory(item);setSubcategory('');}}>{item||'全部'}</button>)}
+      </div>
+      {subcategories.length>1&&<div className="sub-strip" role="group" aria-label="用途">
+        {['',...subcategories].map(item=><button key={item} type="button" aria-pressed={subcategory===item}
+          onClick={()=>setSubcategory(item)}>{item||'全部'}</button>)}
+      </div>}
     </div>}
     {error&&<p className="form-error" role="alert">{error}</p>}
     <div className="directory-grid market-grid">
       {visible.map(bot=>{
         const room=workspace.conversations.find(room=>room.botId===bot.id);
         return <section className="directory-card" key={bot.id}>
-        <div className="directory-card-head"><BotMark kind={bot.kind} className="large"/><div><h2>{bot.name}</h2><p>{bot.subtitle}</p></div>
-          <span className={'chip '+(bot.blocked?'wait':'success')}><i className="phase-dot"/>{needsReassembly(bot)?'待重新装配':bot.blocked?'依赖待配置':'可用'}</span></div>
+        <div className="directory-card-head"><BotMark bot={bot} className="large"/><div><h2>{bot.name}</h2><p>{bot.subtitle}</p></div>
+          <span className={'chip '+(bot.blocked?'wait':'success')}><i className="phase-dot"/>{needsReassembly(bot)?'待重新装配':bot.blocked?'依赖待配置':['asr','captions','visual','template'].includes(bot.mode)?'需语音模型':'可用'}</span></div>
         <p>{bot.description}</p>
         <dl><dt>需要</dt><dd>{bot.input}</dd><dt>交付</dt><dd>{bot.output}</dd></dl>
         {bot.blocked&&<p className="muted">{bot.blocked} <a href={dependencyHref(bot)}>{needsReassembly(bot)?'查看 Bot 版本':'检查依赖'}</a></p>}
@@ -457,7 +465,7 @@ export function Manage({workspace,refresh,notify,requestedSection,botId,revision
     <div className="manage-tabs">{sections.map(([id,label])=><button key={id} aria-pressed={section===id} className="button"
       onClick={()=>routeTo(id==='versions'?'manage':'manage/'+id)}>{label}</button>)}</div>
     {busy&&<p className="muted" role="status">正在处理维护操作…</p>}
-    {section==='versions'&&<div className="management-stack">{workspace.bots.filter(bot=>bot.kind!=='teaching').reverse().map(bot=><section className="manage-card" key={bot.id+'/'+bot.revision}>
+    {section==='versions'&&<div className="management-stack">{workspace.bots.filter(bot=>['script','brief'].includes(bot.kind)).reverse().map(bot=><section className="manage-card" key={bot.id+'/'+bot.revision}>
       <div className="manage-head"><BotMark kind={bot.kind}/><h2
         ref={bot.status==='disabled'&&retired===bot.id+'/'+bot.revision?retiredHeading:
           versionKey===bot.id+'/'+bot.revision?versionHeading:null} tabIndex={-1}>{bot.name} <span className="version">r{bot.revision}</span></h2>

@@ -149,7 +149,7 @@ async function checkWindowAccess(app,page) {
   },origin);
   assert.ok(sibling[0]===0 || sibling[0]===403);
   assert.equal(sibling[1],true);
-  const bridge=['exportArtifact','exportBotHistory','reconnectHost'];
+  const bridge=['exportArtifact','exportBotHistory','exportSpecialist','reconnectHost'];
   if (manifest.desktopCredentialSetup) bridge.push('setProviderCredential');
   if (manifest.desktopRuntimeSetup) bridge.push('runtimeSetup');
   assert.deepEqual(await page.evaluate(()=>Object.keys(window.hyperBot).sort()),bridge.sort());
@@ -161,7 +161,7 @@ const clean=await session(fresh,false,async ({app,page,api,source,workspace})=>{
   assert.equal(source.version,manifest.version);
   assert.equal(source.sandbox,true);
   assert.equal(workspace.conversations.length,0);
-  assert.ok(workspace.bots.every(bot=>bot.blocked));
+  assert.ok(workspace.bots.filter(bot=>bot.kind!=='teaching').every(bot=>bot.blocked));
   await assert.rejects(node([archiveTool,'backup',fresh,path.join(testRoot,'blocked')]),/已有 Hyper Bot 进程/);
   if(testRecoveryNavigation) {
     const entry=page.locator('#workspace-nav').getByRole('link',{name:'断线核对',exact:true});
@@ -189,7 +189,7 @@ const clean=await session(fresh,false,async ({app,page,api,source,workspace})=>{
   const windowAccess=testWindowAccess?await checkWindowAccess(app,page):null;
   return {version:source.version,node:nodeVersion,defaultMediaDriver:workspace.bots.find(item=>item.id==='media')?.driver,
     ...(windowAccess?{windowAccess}:{}),
-    disabledByMissingDependencies:workspace.bots.length,activeBackupRefused:true,
+    disabledByMissingDependencies:workspace.bots.filter(bot=>bot.blocked).length,activeBackupRefused:true,
     ...(testRecoveryNavigation?{recoveryNavigation:true}:{}),...(testDependencies?{readinessNavigation:true}:{})};
 });
 

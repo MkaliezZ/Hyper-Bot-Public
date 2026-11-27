@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { open, unlink } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
+import { Readable } from 'node:stream';
 import path from 'node:path';
 import { startHost } from './host.mjs';
 import { desktopCredentialStore } from './credentials.mjs';
@@ -113,7 +114,8 @@ else {
     let file;
     try {
       file=await open(filename,'wx');
-      await file.writeFile(content);
+      if(typeof content==='function') await content(file);
+      else await file.writeFile(content);
       await file.close();
       return 'saved';
     } catch(error) {
@@ -185,6 +187,21 @@ else {
       const after=await fetchExport(route,30000);
       return after?{content:Buffer.from(await after.arrayBuffer()),count:Number(after.headers.get('X-Hyper-Bot-Exported'))}:null;
     });
+  }
+
+  async function saveSpecialistFile(event,roomId,runId,filename) {
+    checkExportSender(event);
+    if(typeof filename!=='string'||!['timeline.mp4','visual.mp4','reviewed_cut.mp4','reviewed_cut.srt','shot.mp4'].includes(filename)) {
+      throw new Error('专项成果文件名无效。');
+    }
+    const route=exportRoute(event,'/rooms/'+id.parse(roomId)+'/specialist-download/'+id.parse(runId)+'/'+filename);
+    return saveExport(event,'保存专项成果',filename,{name:'工作台成果',extensions:[filename.split('.').at(-1)]},async()=>({
+      content:async file=>{
+        const response=await fetchExport(route,5*60_000);
+        if(!response?.body)throw new Error('专项成果已不可用。');
+        await file.writeFile(Readable.fromWeb(response.body));
+      }
+    }));
   }
 
   const visibleSelection=choice=>Object.fromEntries(Object.entries(choice).map(([field,value])=>
@@ -327,6 +344,7 @@ else {
     ipcMain.handle('hyper-bot:credential',setProviderCredential);
     ipcMain.handle('hyper-bot:save',saveArtifact);
     ipcMain.handle('hyper-bot:save-history',saveBotHistory);
+    ipcMain.handle('hyper-bot:save-specialist',saveSpecialistFile);
     showWindow();
   }).catch(error=>{
     dialog.showErrorBox('Hyper Bot 无法启动',error?.status ? error.message : '请构建前端并检查本机依赖。');

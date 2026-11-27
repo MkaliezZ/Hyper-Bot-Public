@@ -4,7 +4,7 @@
 
 Hyper Bot is a local workspace for task-specific bots. Workspaces can use the same bot while keeping conversations, materials, and drafts separate. A conversation can opt in to workspace memory. The preview shows what was referenced, and new tasks stop sending a memory after it is revoked.
 
-This source snapshot is version `0.1.0-dev.59`. It includes ten English teaching bots, talking-video scripts, and material briefs, with support for assembling new bots from skills and harnesses.
+This source snapshot is version `0.1.0-dev.60`. The Bot Plaza includes 10 English teaching bots, 20 self-media specialist bots, plus talking-video scripts and material briefs. Hyper Bot supports assembling bots from skills and harnesses.
 
 ## Run from source
 

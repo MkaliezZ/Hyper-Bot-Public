@@ -130,6 +130,9 @@ async function snapshotDatabase(source,target,relative) {
   const {db,state}=checkedDatabase(from);
   try {
     assertArchiveSafe(state);
+    if (state.conversations.some(room=>room.specialistUploads?.length)) {
+      throw new Error('工作区有尚未登记的专项素材。请先执行任务或移除暂存素材，再重新备份。');
+    }
     if (relative===database) await mkdir(target,{mode:0o700});
     else await mkdir(path.dirname(to),{recursive:true,mode:0o700});
     await backup(db,to);

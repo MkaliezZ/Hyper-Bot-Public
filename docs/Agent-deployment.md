@@ -52,12 +52,12 @@ npm start
 npm run verify:deployment -- http://127.0.0.1:4367
 ~~~
 
-该命令逐字节校验当前服务返回的首页、JS 和 CSS，再核对工作区接口里的十个教培 Bot。版本号或 HTTP 200 只能确认部分信息。如果静态文件不一致，检查终端是否继承了指向旧构建的 `HYPER_BOT_FRONTEND_ASSETS`。macOS 可在启动前执行 `unset HYPER_BOT_FRONTEND_ASSETS`，然后用启动输出的地址重新打开页面。
+该命令核对前后端的版本和实际提供的 HTML、JS、CSS，并验收工作区接口里的 20 个自媒体专项 Bot 和 10 个英语教培 Bot。新版「Bot广场」默认在「全部」展示 32 个内置 Bot，包括原有的自媒体口播和素材简报。如果静态文件不一致，检查终端是否继承了指向旧构建的 `HYPER_BOT_FRONTEND_ASSETS`。macOS 可在启动前执行 `unset HYPER_BOT_FRONTEND_ASSETS`，然后用启动输出的地址重新打开页面。
 
 ## 验收英语教培
 
 1. 在 `npm run doctor` 的 JSON 输出中确认 `teaching.ok` 和 `teaching.lessons.ok` 都为 true。运行 `npm run test:teaching`，检查课件生成、练习生成、教培记录和模型协议测试结果。
-2. 打开「Bot 市场 → 英语教培 → 课上互动课件」，用一份合成 TXT 教材生成课件，打开互动预览并下载 PPTX。测试时可以用 `HYPER_BOT_DATA_DIR` 指向单独目录。常用工作区保留原来的数据目录。
+2. 打开「Bot广场 → 英语教培 → 课上互动课件」，用一份合成 TXT 教材生成课件，打开互动预览并下载 PPTX。测试时可以用 `HYPER_BOT_DATA_DIR` 指向单独目录。常用工作区保留原来的数据目录。
 3. 同一分类下可以打开「课后练习设计」「运营校历」「政策与热点」「续费与跟进」「运营数据导入」「学员档案」「课程段关联」「学习记录」和「教培任务助手」。
 4. 使用教培任务助手时，在启动服务的环境中提供已有的 `DEEPSEEK_API_KEY`，重启服务后在「维护中心 → 本机依赖」确认凭据就绪。其余九个教培 Bot 的本机流程可直接验收。政策与热点中的订阅刷新会读取对应来源。
 
@@ -76,3 +76,41 @@ id,track,asOf,endOn,observedThrough,renewed,arm,randomized,experimentId,feedback
 导入续费名单后，可在「续费与跟进」登记联系结果。登记学员后，可在「课程段关联」选取课程段，在「学习记录」选取已生成的课件或练习。
 
 如果 4367 端口已占用，Agent 可以为新进程选用空闲端口并设置 `HYPER_BOT_PORT`，再把实际地址交给用户。依赖检查失败时，先确认当前 Node.js、Python 和仓库路径，再重跑相应的安装步骤。
+
+
+## 启用自媒体专项 Bot
+
+「自媒体」下的 20 个专项 Bot 使用独立的 Self Media Workbench。使用英语教培时，沿用前面 Hyper Bot 自带的教培依赖。先安装锁定版本的自媒体工作台，并设置其仓库根目录与 Python 解释器，随后重新启动 Hyper Bot。[Self Media Workbench 固定提交](https://github.com/MkaliezZ/self-media-workbench/tree/59589fc365e084de9b9bd0759714c07eaabd9b7b)。
+
+在 Hyper Bot 源码目录打开终端，把工作台克隆到同级目录。
+
+~~~sh
+git clone https://github.com/MkaliezZ/self-media-workbench.git ../self-media-workbench
+git -C ../self-media-workbench checkout --detach 59589fc365e084de9b9bd0759714c07eaabd9b7b
+~~~
+
+macOS 在同一个终端执行以下命令。示例使用工作台支持的 Python 3.11，替换为本机实际安装的命令即可。
+
+~~~sh
+export HYPER_BOT_WORKBENCH_ROOT="$(cd ../self-media-workbench && pwd -P)"
+python3.11 -m venv "$HYPER_BOT_WORKBENCH_ROOT/.venv"
+export HYPER_BOT_WORKBENCH_PYTHON="$HYPER_BOT_WORKBENCH_ROOT/.venv/bin/python"
+"$HYPER_BOT_WORKBENCH_PYTHON" -m pip install -r "$HYPER_BOT_WORKBENCH_ROOT/requirements.txt"
+npm run doctor
+~~~
+
+Windows PowerShell 在同一个终端执行以下命令，使用实际安装的 Python 3.11 或更新版本。
+
+~~~powershell
+$env:HYPER_BOT_WORKBENCH_ROOT = (Resolve-Path ../self-media-workbench).Path
+python -m venv "$env:HYPER_BOT_WORKBENCH_ROOT/.venv"
+$env:HYPER_BOT_WORKBENCH_PYTHON = "$env:HYPER_BOT_WORKBENCH_ROOT/.venv/Scripts/python.exe"
+& $env:HYPER_BOT_WORKBENCH_PYTHON -m pip install -r "$env:HYPER_BOT_WORKBENCH_ROOT/requirements.txt"
+npm.cmd run doctor
+~~~
+
+- 查看 `doctor` 的 `workbench.ok`。账号分析、对标拆解、选题等模型任务还需要在同一启动环境提供自己的 `DEEPSEEK_API_KEY`。
+- 剪辑、打点和成片导出需要 FFmpeg 与 FFprobe。确保两个命令在启动进程的 PATH 里，或将 `HYPER_BOT_FFMPEG_DIR` 指向同时包含两者的绝对目录。
+- 转录和字幕使用另行安装的语音模型。根据目标电脑安装 Workbench 的 `requirements-asr.txt` 或 Apple Silicon 的 `requirements-mlx.txt`，并在 Hyper Bot 启动环境中设置 `SELF_MEDIA_MODEL`（CTranslate2 模型目录）或 `SELF_MEDIA_MLX_MODEL`（MLX 模型目录）。可选地令 `SELF_MEDIA_ASR_BACKEND` 和 `SELF_MEDIA_DEVICE` 匹配实际设备。[语音模型和平台说明](https://github.com/MkaliezZ/self-media-workbench/blob/59589fc365e084de9b9bd0759714c07eaabd9b7b/README.md)。
+
+确认「Bot广场 → 自媒体」出现 22 个 Bot，再用合成短片试跑「自动剪辑」并下载 MP4。只有启用相应的运行依赖后，对应任务才会执行。

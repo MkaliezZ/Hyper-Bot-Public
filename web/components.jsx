@@ -1,10 +1,13 @@
 import React from 'react';
-import { AudioLines, ChevronRight, FileText, GraduationCap, ShieldCheck } from 'lucide-react';
+import { AudioLines, ChevronRight, FileText, GraduationCap, ShieldCheck, Video } from 'lucide-react';
 import { phases, runHref } from './client.js';
 
 export function BotMark({bot,kind=bot?.kind,className=''}) {
+  if(bot?.avatar)return <span className={'bot-mark illustrated '+className} aria-hidden="true">
+    <img src={bot.avatar} alt="" width="128" height="128" draggable={false}/>
+  </span>;
   return <span className={'bot-mark '+kind+' '+className} aria-hidden="true">
-    {kind==='brief'?<FileText/>:kind==='teaching'?<GraduationCap/>:<AudioLines/>}
+    {kind==='brief'?<FileText/>:kind==='teaching'?<GraduationCap/>:kind==='workbench'?<Video/>:<AudioLines/>}
   </span>;
 }
 

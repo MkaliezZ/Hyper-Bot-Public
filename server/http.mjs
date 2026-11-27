@@ -3,6 +3,8 @@ import { teachingServices } from './teaching-trial.mjs';
 import { mkdir, readFile } from 'node:fs/promises';
 import { workspaceLock } from './workspace-lock.mjs';
 import { once } from 'node:events';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import { ZodError } from 'zod';
 import { Store, isLive } from './store.mjs';
@@ -98,6 +100,24 @@ function apiMethod(request,response,url,host,streams,configuring) {
       if (key) takeId(key);
       if (key && !part && get) return json(response,app.room(key));
       if (key && part==='draft' && !extra && post) return json(response,app.saveDraft(key,await input()));
+      if(key&&part==='specialist'&&!extra&&post) return json(response,app.startSpecialist(key,await input()),202);
+      if(key&&part==='specialist-upload'&&!extra&&post) {
+        requireRuntime();
+        return json(response,await app.uploadSpecialist(key,url.searchParams.get('name')??'',request),201);
+      }
+      if(key&&part==='specialist-upload'&&extra&&leaf==='remove'&&post) {
+        await input();
+        return json(response,await app.removeSpecialistUpload(key,takeId(extra)));
+      }
+      if(key&&part==='specialist-download'&&extra&&leaf&&get) {
+        const file=app.specialistFile(key,takeId(extra),leaf);
+        const origin=await app.workbench.ensure();
+        const asset=await fetch(origin+file.route,{redirect:'error',headers:{'X-Hyper-Bot-Bridge':app.workbench.bridgeKey}});
+        if(!asset.ok||!asset.body)throw new Problem(404,'成片文件当前不可用。','not_found');
+        response.writeHead(200,{'Content-Type':file.name.endsWith('.mp4')?'video/mp4':'application/octet-stream',
+          'Cache-Control':'no-store','Content-Disposition':'attachment; filename="'+file.name+'"'});
+        return pipeline(Readable.fromWeb(asset.body),response);
+      }
       if (key && part==='memory' && !extra && post) return json(response,app.setMemoryPreference(key,await input()));
       if (key && part==='original' && !extra && get) return json(response,await app.originalContents(key));
       if (key && part==='original' && extra==='materials' && !leaf && post) {
@@ -240,7 +260,9 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
           }
           if (request.method==='POST') {
             const upload=/^\/api\/(?:v1\/workspaces\/[^/]+\/)?rooms\/[^/]+\/teaching\/upload$/.test(url.pathname);
-            const mediaType=upload?/^multipart\/form-data;\s*boundary=/i:/^application\/json\b/;
+            const specialistUpload=/^\/api\/(?:v1\/workspaces\/[^/]+\/)?rooms\/[^/]+\/specialist-upload$/.test(url.pathname);
+            const mediaType=upload?/^multipart\/form-data;\s*boundary=/i:
+              specialistUpload?/^application\/octet-stream\b/:/^application\/json\b/;
             if(!mediaType.test(request.headers['content-type']??'')||request.headers['x-hyper-bot']!=='1'){
               throw new Problem(403,'操作请求无效。');
             }

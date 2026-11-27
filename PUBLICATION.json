@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "project": "Hyper Bot",
-  "version": "0.1.0-dev.59",
+  "version": "0.1.0-dev.60",
   "type": "public-source-snapshot",
   "includes": [
     "application source",
@@ -11,6 +11,7 @@
     "application assets",
     "third-party notices",
     "built-in English teaching runtime and templates",
+    "self-media specialist Bot catalog, assets, and Self Media Workbench integration",
     "Windows and macOS agent deployment guide"
   ],
   "excludes": [

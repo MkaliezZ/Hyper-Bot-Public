@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { addAbortListener } from 'node:events';
-import { mkdir, realpath } from 'node:fs/promises';
+import { mkdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 import { Problem } from './contracts.mjs';
@@ -15,6 +15,7 @@ import { evidenceReviewNotes, reviewScriptEvidence } from './script-evidence.mjs
 export { payloadHash, planDigest };
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const speechSettings=['SELF_MEDIA_MODEL','SELF_MEDIA_MLX_MODEL','SELF_MEDIA_ASR_BACKEND','SELF_MEDIA_DEVICE','SELF_MEDIA_LANGUAGE'];
 export class Workbench {
   static async rehearseScript(config,run,materials,result,signal) {
     signal.throwIfAborted();
@@ -57,10 +58,21 @@ export class Workbench {
     await requireRuntimeSource(this.config,'workbench');
     // Workbench adds generated file names and temporary suffixes under this directory.
     const state = path.toNamespacedPath(await realpath(this.data));
+    const speech=Object.fromEntries(speechSettings.flatMap(name=>process.env[name]===undefined?[]:[[name,process.env[name]]]));
+    const env=processEnvironment({...speech,SELF_MEDIA_STATE_DIR:state,SELF_MEDIA_DATA_DIR:path.join(state,'projects'),
+      PYTHONDONTWRITEBYTECODE:'1',PYTHONUTF8:'1',HYPER_BOT_WORKBENCH_BRIDGE:this.bridgeKey});
+    const ffmpeg=process.env.HYPER_BOT_FFMPEG_DIR?.trim();
+    if (ffmpeg) {
+      const extension=process.platform==='win32'?'.exe':'';
+      const binaries=await Promise.all(['ffmpeg','ffprobe'].map(name=>stat(path.join(ffmpeg,name+extension)).catch(()=>null)));
+      if(!path.isAbsolute(ffmpeg)||binaries.some(file=>!file?.isFile())) {
+        throw new Problem(503,'请为 HYPER_BOT_FFMPEG_DIR 指定包含 FFmpeg 和 FFprobe 的绝对目录。','workbench_unavailable');
+      }
+      const key=Object.keys(env).find(name=>name.toLowerCase()==='path')??'PATH';
+      env[key]=[ffmpeg,env[key]].filter(Boolean).join(path.delimiter);
+    }
     const child = spawn(workbenchPython,['-B','-X','utf8',path.join(root,'scripts/workbench_server.py'),workbenchRoot],{
-      cwd:workbenchRoot,env:processEnvironment({SELF_MEDIA_STATE_DIR:state,
-        SELF_MEDIA_DATA_DIR:path.join(state,'projects'),PYTHONDONTWRITEBYTECODE:'1',PYTHONUTF8:'1',
-        HYPER_BOT_WORKBENCH_BRIDGE:this.bridgeKey}),
+      cwd:workbenchRoot,env,
       windowsHide:true,stdio:['pipe','pipe','pipe']
     });
     child.stdin.on('error', () => {});

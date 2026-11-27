@@ -60,7 +60,7 @@ export function History({workspace,filters,onChange}) {
     matches(words,room.title,room.projectTitle,describeBot(workspace,room.botId,room.revision)));
   return <>
     <div className="section-head"><div><h1>会话记录</h1><p>按 Bot 找回以前的任务与草稿。</p></div>
-      <a className="button" href="#bots"><ArrowRight size={16}/>Bot 市场</a></div>
+      <a className="button" href="#bots"><ArrowRight size={16}/>Bot广场</a></div>
     <SearchBar workspace={workspace} filters={filters} onChange={onChange} placeholder="搜索会话或项目"/>
     {filters.revision&&<div className="browse-version">
       <span>{describeBot(workspace,filters.bot,Number(filters.revision))}</span>

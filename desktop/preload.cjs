@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('hyperBot',{
     close:ticket=>ipcRenderer.invoke('hyper-bot:runtime-close',ticket)
   },
   exportArtifact:(artifactId,format)=>ipcRenderer.invoke('hyper-bot:save',artifactId,format),
+  exportSpecialist:(roomId,runId,name)=>ipcRenderer.invoke('hyper-bot:save-specialist',roomId,runId,name),
   exportBotHistory:(botId,revision)=>ipcRenderer.invoke('hyper-bot:save-history',botId,revision)
 });
 

@@ -83,7 +83,7 @@ export function WorkspaceNav({workspace,groups,route,roomId,open,onClose,onColla
         const waiting=bot.id===activeBot&&workspace.active.state==='waiting_approval';
         return <a key={bot.id} className="nav-line workspace-bot" href={room?'#chat/'+room.id:'#bots/'+bot.id}
           aria-current={currentRoom?.botId===bot.id?'page':undefined}>
-          <BotMark kind={bot.kind}/><span className="workspace-bot-copy"><strong>{bot.name}</strong>
+          <BotMark bot={bot}/><span className="workspace-bot-copy"><strong>{bot.name}</strong>
             <small>{waiting?'待确认写入':room?.title??'打开 Bot'}</small></span>
           {waiting&&<i className="status-dot" aria-hidden="true"/>}
         </a>;
@@ -91,7 +91,7 @@ export function WorkspaceNav({workspace,groups,route,roomId,open,onClose,onColla
       {!bots.length&&<a className="nav-line workspace-empty" href="#bots"><Plus/>添加专项 Bot</a>}
     </nav>
     <div className="rail-foot workspace-bottom">
-      <a className="nav-line" href="#bots" aria-current={route==='bots'?'page':undefined}><Grid2X2/>Bot 市场</a>
+      <a className="nav-line" href="#bots" aria-current={route==='bots'?'page':undefined}><Grid2X2/>Bot广场</a>
       <details className="workspace-more" ref={menu} onBlur={event=>{
         if(!event.currentTarget.contains(event.relatedTarget))event.currentTarget.open=false;
       }} onKeyDown={event=>{

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import packageInfo from '../package.json' with { type:'json' };
 import { z } from 'zod';
 import { Problem, botKey, heading, id, message, textFile, definitionPrompt, resultOf, sha } from './contracts.mjs';
 import { at, allArtifacts, artifactOf, botOf, conversationOf, draftToken, isLive, makeConversation, publicRun, revisableProposalIn,
@@ -6,7 +7,8 @@ import { at, allArtifacts, artifactOf, botOf, conversationOf, draftToken, isLive
 import { approvedMethodsForRun, botBlock, Registry } from './registry.mjs';
 import { dependencyStatus, inspectDependencies, inspectRuntimeInstallation } from './config.mjs';
 import { unusedMeter } from './provider.mjs';
-import { teachingBot, teachingDirectory } from './teaching-catalog.mjs';
+import { builtInCopy, specialistBot, specialistDirectory } from './specialist-catalog.mjs';
+import { discardWorkbenchUpload, runMediaSpecialist, saveWorkbenchUpload, specialistInput, workbenchUploadPath } from './media-specialists.mjs';
 import { generateTeachingReply } from './teaching-assistant.mjs';
 import { receiptReport, storeAccounting, upstreamMode } from './run-receipts.mjs';
 import { materializeExample } from './bot-sample.mjs';
@@ -237,9 +239,13 @@ export class HyperBot {
       if (bot.status==='disabled') bot.history=retiredHistorySummary(state,bot);
     }
     return {
-      version,...registry,materialRetention:true,originalWorkbench:this.config.allowOriginalWorkbench!==false,
-      bots:[...registry.bots.map(bot=>({...bot,category:'自媒体'})),
-        ...teachingDirectory(this.config).filter(bot=>!state.bots.some(item=>item.id===bot.id))],
+      version,appVersion:packageInfo.version,...registry,materialRetention:true,originalWorkbench:this.config.allowOriginalWorkbench!==false,
+      bots:[...registry.bots.map(bot=>{
+        const builtIn=['media','brief'].includes(bot.id);
+        return {...bot,category:'自媒体',...(builtIn?{subcategory:'文案',avatar:'/media/avatars/'+bot.id+'.webp'}:{}),
+          ...(builtIn&&bot.revision===1&&bot.qualification==='pinned-dev'?builtInCopy[bot.id]:{})};
+      }),
+        ...specialistDirectory(this.config).filter(bot=>!state.bots.some(item=>item.id===bot.id))],
       installedBots:installedBots(state),
       conversations: conversations.map(({draft,draftRetry,draftProposal,draftStamp,handoffRequest,teachingProject,trialTeachingProject,teachingTaskIds,...room})=>room)
         .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)),
@@ -384,7 +390,7 @@ export class HyperBot {
     const {botId}=installInput.parse(raw);
     return this.store.change(state=>{
       const bot=state.bots.filter(item=>item.id===botId&&item.status==='enabled')
-        .sort((a,b)=>b.revision-a.revision)[0]??(!state.bots.some(item=>item.id===botId)?teachingBot(botId,1):undefined);
+        .sort((a,b)=>b.revision-a.revision)[0]??(!state.bots.some(item=>item.id===botId)?specialistBot(botId,1):undefined);
       if (!bot) throw new Problem(404,'没有可添加的 Bot 版本。','not_found');
       const existing=state.conversations.filter(room=>room.botId===botId)
         .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))[0];
@@ -404,8 +410,8 @@ export class HyperBot {
     if (replay) return replay;
     const candidate=botOf(snapshot,input.botId,input.revision);
     if (candidate.status!=='enabled') throw new Problem(409,'这个 Bot 版本还未启用。');
-    if(candidate.kind==='teaching'&&(input.example||handoff||input.simulation)){
-      throw new Problem(422,'请从教培 Bot 会话打开任务。','teaching_scope');
+    if(['teaching','workbench'].includes(candidate.kind)&&(input.example||handoff||input.simulation)){
+      throw new Problem(422,'请从专项 Bot 会话打开任务。','specialist_scope');
     }
     if (input.project && candidate.kind!=='script') throw new Problem(422,'此 Bot 使用 Hyper Bot 内部成果库。');
     if ((input.projectScope && (!input.project || !input.projectStorage || input.example)) ||
@@ -581,8 +587,8 @@ export class HyperBot {
     const priorRun=state=>state.runs.find(row=>row.clientRequestId===input.clientRequestId);
     const initial=this.store.read();
     const selected=conversationOf(initial,roomId);
-    if(botOf(initial,selected.botId,selected.revision).kind==='teaching'){
-      throw new Problem(422,'请使用教培 Bot 的任务入口。','teaching_scope');
+    if(['teaching','workbench'].includes(botOf(initial,selected.botId,selected.revision).kind)){
+      throw new Problem(422,'请使用专项 Bot 的任务入口。','specialist_scope');
     }
     if (!priorRun(initial) && !initial.runs.some(isLive) && !this.registry.testing) {
       const bot=botOf(initial,selected.botId,selected.revision);
@@ -694,6 +700,115 @@ export class HyperBot {
     } catch(error){
       this.generationFailed(job.id,error,signal,usage);
     }
+  }
+
+  getMediaRoom(roomId,state=this.store.read()) {
+    const room=conversationOf(state,roomId);
+    const bot=botOf(state,room.botId,room.revision);
+    if(bot.kind!=='workbench')throw new Problem(404,'本会话没有自媒体专项工作台。','specialist_scope');
+    return {room,bot};
+  }
+
+  async uploadSpecialist(roomId,name,request) {
+    const {room,bot}=this.getMediaRoom(roomId);
+    if(!bot.uploads)throw new Problem(422,'此 Bot 使用授权文字输入。','specialist_input');
+    if(bot.mode==='text'&&!/\.(txt|md|csv|json)$/i.test(name)) {
+      throw new Problem(422,'文字 Bot 接收 TXT、Markdown、CSV 或 JSON。','specialist_input');
+    }
+    if((room.specialistUploads??[]).length>=8) throw new Problem(422,'每次最多添加 8 份待登记素材。','specialist_input');
+    const file=await saveWorkbenchUpload(this.config.data,roomId,name,request);
+    try {
+      return this.store.change(state=>{
+        const {room}=this.getMediaRoom(roomId,state);
+        const files=room.specialistUploads??=[];
+        if(files.length>=8) throw new Problem(422,'每次最多添加 8 份待登记素材。','specialist_input');
+        files.push(file);
+        return file;
+      });
+    } catch(error) {
+      await discardWorkbenchUpload(workbenchUploadPath(this.config.data,roomId,file));
+      throw error;
+    }
+  }
+
+  async removeSpecialistUpload(roomId,id) {
+    const file=this.store.change(state=>{
+      const {room}=this.getMediaRoom(roomId,state);
+      if(state.runs.some(run=>run.conversation===roomId&&isLive(run))) {
+        throw new Problem(409,'素材正在登记。','busy');
+      }
+      const pending=room.specialistUploads??[];
+      const item=pending.find(file=>file.id===id);
+      if(!item) throw new Problem(404,'此素材已登记或移除。','not_found');
+      room.specialistUploads=pending.filter(file=>file.id!==id);
+      return item;
+    });
+    await discardWorkbenchUpload(workbenchUploadPath(this.config.data,roomId,file));
+    return {};
+  }
+
+  startSpecialist(roomId,raw) {
+    const input=specialistInput.parse(raw);
+    const signature=payloadHash({roomId,input});
+    const {room,bot,job,fresh}=this.store.change((state,emit)=>{
+      const {room,bot}=this.getMediaRoom(roomId,state);
+      const prior=state.runs.find(run=>run.clientRequestId===input.requestId);
+      if(prior) {
+        if(prior.signature!==signature)throw new Problem(409,'这个任务编号已用于不同任务。','duplicate_request');
+        return {room,bot,job:prior,fresh:false};
+      }
+      if(this.closing||this.runtimeChanging||this.cleaning||this.registry.testing||state.runs.some(isLive)) {
+        throw new Problem(409,'请等当前工作区的任务或维护结束。','busy');
+      }
+      const available=specialistDirectory(this.config).find(entry=>entry.id===bot.id);
+      if(available?.blocked)throw new Problem(503,available.blocked,'dependency_unavailable');
+      const now=at();
+      const job={id:randomUUID(),clientRequestId:input.requestId,signature,conversation:roomId,botId:bot.id,
+        botRevision:bot.revision,kind:bot.kind,driver:bot.model?'dsh-web':'workbench',driverRevision:bot.revision,
+        prompt:input.text,materialIds:[],specialistInput:input,specialistFiles:room.specialistUploads??[],
+        state:'queued',createdAt:now,updatedAt:now,usage:unusedMeter(),recovery:null,
+        ...(bot.model?{model:this.config.model,modelMode:upstreamMode(this.config)}:{})};
+      state.runs.push(job);
+      room.updatedAt=now;
+      emit(job,'accepted',{role:'user',state:'queued',capability:bot.id});
+      return {room,bot,job,fresh:true};
+    });
+    if(fresh)this.track(job.id,signal=>this.runSpecialist(bot,room,job,signal));
+    return publicRun(job);
+  }
+
+  async runSpecialist(bot,room,job,signal) {
+    let usage;
+    try {
+      signal.throwIfAborted();
+      this.store.change((state,emit)=>this.store.transition(state,emit,runOf(state,job.id),'running'));
+      const result=await runMediaSpecialist({bot,room,job,signal,config:this.config,workbench:this.workbench,onUsage:value=>{usage=value;},
+        onIntake:({project,task})=>this.store.change((state,emit)=>{
+          const run=runOf(state,job.id),current=conversationOf(state,room.id);
+          if(current.project&&current.project!==project)throw new Problem(409,'工作台绑定已变化。','workbench_conflict');
+          current.project=project;
+          current.specialistUploads=(current.specialistUploads??[]).filter(file=>!job.specialistFiles.some(sent=>sent.id===file.id));
+          Object.assign(run,{project,workbenchTask:task});
+          emit(run,'workbench_intake',{project,task});
+        })});
+      signal.throwIfAborted();
+      this.store.change((state,emit)=>this.store.transition(state,emit,runOf(state,job.id),'succeeded',
+        {specialistResult:result,...(usage?{usage}:{})}));
+    } catch(error) {
+      this.generationFailed(job.id,error,signal,usage);
+    }
+  }
+
+  specialistFile(roomId,runId,name) {
+    const state=this.store.read();
+    this.getMediaRoom(roomId,state);
+    const run=runOf(state,runId);
+    const file=run.conversation===roomId&&run.specialistResult?.files?.find(item=>item.name===name);
+    if(!file||!projectId.test(run.project)||!projectId.test(file.export??file.media)) {
+      throw new Problem(404,'找不到已完成的本机成果。','not_found');
+    }
+    return {route:'/api/projects/'+run.project+(file.media?'/media/'+file.media+'/original':
+      '/exports/'+file.export+'/'+encodeURIComponent(file.name)),name:file.name};
   }
 
   track(id,callback) {

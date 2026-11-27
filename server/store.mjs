@@ -7,7 +7,7 @@ import { DSH_VERSION, HERMES_REVISION, root } from './config.mjs';
 import { relatedProjectVersions } from './history.mjs';
 import { activeMaterial, hidesArtifact, materialMetadata, materialVisibleIn, visibleArtifact } from './materials.mjs';
 import { currentMemory } from './workspace-memory.mjs';
-import { teachingBot } from './teaching-catalog.mjs';
+import { specialistBot } from './specialist-catalog.mjs';
 
 export const at = () => new Date().toISOString();
 export const isLive = run => Object.hasOwn(ALLOWED, run.state);
@@ -27,7 +27,7 @@ export const registeredBotOf = (state,id,revision) => {
   return item;
 };
 export const botOf = (state,id,revision) => {
-  const builtIn=teachingBot(id,revision);
+  const builtIn=specialistBot(id,revision);
   return builtIn&&!state.bots.some(bot=>bot.id===id)?builtIn:registeredBotOf(state,id,revision);
 };
 
@@ -139,7 +139,7 @@ export class Store {
 }
 
 export function publicRun(run) {
-  const { plan, approval, materialIds, generation, accounting, followUpDraftStamp, memoryRefs, teachingEvidence, ...info } = run;
+  const { plan, approval, materialIds, generation, accounting, followUpDraftStamp, memoryRefs, teachingEvidence, specialistInput, specialistFiles, ...info } = run;
   const preview = run.state === 'waiting_approval' ? plan?.result : undefined;
   return {...info,materialIds,preview,
     ...(preview&&plan?.timing?{previewTiming:plan.timing}:{}),

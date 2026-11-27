@@ -10,7 +10,7 @@ import { dependencies, requireRuntimeSource, WB_REVISION } from './config.mjs';
 import { unusedMeter } from './provider.mjs';
 import { legacyVerification, upstreamMode } from './run-receipts.mjs';
 import { Workbench } from './workbench.mjs';
-import { teachingBot } from './teaching-catalog.mjs';
+import { specialistBot } from './specialist-catalog.mjs';
 
 const version = z.string().regex(/^\d+\.\d+\.\d+$/);
 const kind = z.enum(['script','brief']);
@@ -266,8 +266,8 @@ export class Registry {
       throw new Problem(422,'请选择已审阅的 Skill 或自带流程。','workflow_required');
     }
     return this.store.change(state=>{
-      if(teachingBot(input.id,1)&&!state.bots.some(bot=>bot.id===input.id)) {
-        throw new Problem(409,'这个编号已用于内置教培 Bot。','builtin_bot');
+      if(specialistBot(input.id,1)&&!state.bots.some(bot=>bot.id===input.id)) {
+        throw new Problem(409,'这个编号已用于内置专项 Bot。','builtin_bot');
       }
       setupSkills(state,input);
       const source=sourceRevision===undefined?null:registeredBotOf(state,input.id,sourceRevision);

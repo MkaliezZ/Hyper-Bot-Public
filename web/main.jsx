@@ -10,6 +10,7 @@ import { Recovery } from './recovery.jsx';
 import { WorkspaceNav } from './workspace-nav.jsx';
 import { WorkspaceMemory } from './workspace-memory.jsx';
 import { TeachingConversation } from './teaching-conversation.jsx';
+import { SpecialistConversation } from './specialist-conversation.jsx';
 import { TeachingAssistant } from './teaching-assistant.jsx';
 import './theme.css';
 
@@ -230,6 +231,8 @@ function App() {
         {bot.kind==='teaching'?(bot.target==='bot'&&bot.trial
           ?<TeachingAssistant key={roomId} room={room} bot={bot} workspace={workspace} navButton={navButton} online={online} refresh={refresh}/>
           :<TeachingConversation key={roomId} room={room} bot={bot} navButton={navButton}/>)
+        :bot.kind==='workbench'?<SpecialistConversation key={roomId} room={room} bot={bot} workspace={workspace} navButton={navButton}
+          refresh={refresh} online={online}/>
         :<Chat key={roomId} room={room} bot={bot} workspace={workspace} drafts={drafts} navButton={navButton} refresh={refresh} notify={setToast}
           onNew={beginConversation}
           requestedArtifact={requestedArtifact} requestedMaterial={requestedMaterial} requestedRun={requestedRun} online={online}/>}

@@ -6,8 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import { id, Problem } from './contracts.mjs';
-import { conversationOf } from './store.mjs';
-import { teachingBot } from './teaching-catalog.mjs';
+import { botOf, conversationOf } from './store.mjs';
 import { jsonBody } from './provider.mjs';
 
 const expired=()=>new Problem(401,'请使用原工作台的教师账号登录。','teaching_session');
@@ -118,8 +117,9 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
     await pipeline(res,response);
   }
   async function handle(request,response,url,host,roomId,action,json) {
-    const room=conversationOf(host.store.read(),resourceId(roomId));
-    const bot=teachingBot(room.botId,room.revision);
+    const state=host.store.read();
+    const room=conversationOf(state,resourceId(roomId));
+    const bot=botOf(state,room.botId,room.revision);
     if(bot?.kind!=='teaching')throw missing();
     const target=bot.target, method=request.method, post=method==='POST';
     const input=()=>jsonBody(request);
