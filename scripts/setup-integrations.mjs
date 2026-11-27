@@ -71,13 +71,16 @@ function prepareSpeechModel(python,directory) {
 }
 
 function saveSettings(settings) {
-  const text=Object.entries(settings).map(([key,value])=>{
-    const quote=['"',"'","`"].find(mark=>!value.includes(mark));
+  const entries=Object.entries(settings).map(([key,value])=>[
+    key,windows&&path.isAbsolute(value)?value.replaceAll('\\','/'):value
+  ]);
+  const text=entries.map(([key,value])=>{
+    const quote=["'","`",'"'].find(mark=>!value.includes(mark));
     if(!quote||/[\r\n]/.test(value))throw new Error('部署路径包含无法写入配置文件的字符。');
     return key+'='+quote+value+quote;
   }).join('\n')+'\n';
   const parsed=parseEnv(text);
-  if(Object.entries(settings).some(([key,value])=>parsed[key]!==value)){
+  if(entries.some(([key,value])=>parsed[key]!==value)){
     throw new Error('部署路径无法按原样写入配置。');
   }
   const draft=agentRuntimeSettingsFile+'.'+process.pid+'.tmp';
