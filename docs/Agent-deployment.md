@@ -16,9 +16,9 @@ winget install --exact --id Gyan.FFmpeg
 winget install --exact --id "Microsoft.VCRedist.2015+.x64"
 ~~~
 
-Visual C++ 运行库供 Windows 上的语音识别二进制使用，已有兼容版本时可复用。打开新终端使 PATH 生效。[CTranslate2 安装要求](https://opennmt.net/CTranslate2/installation.html)。
+Visual C++ 运行库供 Windows 上的语音识别二进制使用，已有兼容版本时可复用。若系统没有 WinGet 且已有 Chocolatey，Agent 可以执行 `choco install ffmpeg -y`。打开新终端使 PATH 生效，`setup:integrations` 会从 Chocolatey 的安装目录登记 FFmpeg 和 FFprobe 的实际程序。[CTranslate2 安装要求](https://opennmt.net/CTranslate2/installation.html)。
 
-FFmpeg 也可以从本机已有安装复用，设置 `$env:HYPER_BOT_FFMPEG_DIR` 为同时包含 `ffmpeg.exe` 和 `ffprobe.exe` 的绝对目录。Agent 从新或已有的公库源码目录执行部署。如果使用其他受支持的 Python，将 `$hbPython` 指向其实际解释器。
+FFmpeg 也可以从本机已有安装复用，设置 `$env:HYPER_BOT_FFMPEG_DIR` 为包含实际 `ffmpeg.exe` 和 `ffprobe.exe` 程序的绝对目录。Agent 从新或已有的公库源码目录执行部署。若 Python 已在 PATH 上且系统没有 `py` 启动器，用 `python -c "import sys; print(sys.executable)"` 取得 `$hbPython`，并确认版本符合要求。
 
 ~~~powershell
 git clone --branch main https://github.com/MkaliezZ/Hyper-Bot-Public.git
