@@ -236,6 +236,8 @@ export class HyperBot {
   index() {
     const state=this.store.read();
     const {version,conversations,runs}=state;
+    const installed=installedBots(state);
+    const hiddenSidebarBots=new Set(state.hiddenSidebarBots);
     const registry=this.registry.view(state);
     for (const bot of registry.bots) {
       if (bot.status==='disabled') bot.history=retiredHistorySummary(state,bot);
@@ -249,7 +251,7 @@ export class HyperBot {
       }),
         ...specialistDirectory(this.config).filter(bot=>!state.bots.some(item=>item.id===bot.id))],
       groupChats:true,entityArchive:this.config.allowEntity!==false,
-      installedBots:installedBots(state),
+      installedBots:installed,sidebarBots:installed.filter(id=>!hiddenSidebarBots.has(id)),
       conversations: conversations.map(({draft,draftRetry,draftProposal,draftStamp,handoffRequest,teachingProject,trialTeachingProject,teachingTaskIds,...room})=>room)
         .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)),
       active:runs.filter(isLive).map(publicRun).at(-1) ?? null,
@@ -445,10 +447,20 @@ export class HyperBot {
       const existing=state.conversations.filter(room=>room.botId===botId)
         .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))[0];
       state.installedBots=[...new Set([...installedBots(state),botId])];
+      if(state.hiddenSidebarBots)state.hiddenSidebarBots=state.hiddenSidebarBots.filter(id=>id!==botId);
       if (existing) return {id:existing.id};
       const room=makeConversation(bot,bot.name+'对话');
       state.conversations.push(room);
       return {id:room.id};
+    });
+  }
+
+  removeSidebarBot(raw) {
+    const {botId}=installInput.parse(raw);
+    return this.store.change(state=>{
+      if(!installedBots(state).includes(botId))throw new Problem(404,'侧栏中没有这个 Bot。','not_found');
+      state.hiddenSidebarBots=[...new Set([...(state.hiddenSidebarBots??[]),botId])];
+      return {ok:true};
     });
   }
 

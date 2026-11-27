@@ -109,6 +109,13 @@ button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation
 .rail-search .icon-button { width: 36px; min-height: 40px; flex: none; }
 .rail-searches { margin: -9px 0 12px; }
 .workspace-bot.nav-line { min-height: 51px; }
+.workspace-bot-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 2px; }
+.workspace-bot-row + .workspace-bot-row { margin-top: 3px; }
+.workspace-bot-row .sidebar-bot-remove { width: 32px; height: 38px; opacity: .7; }
+.workspace-bot-row .sidebar-bot-remove:is(:hover,:focus-visible) { opacity: 1; }
+@media (pointer: coarse) {
+  .workspace-bot-row .sidebar-bot-remove { width: 44px; height: 44px; }
+}
 .workspace-bot.nav-line[aria-current] { box-shadow: inset 2px 0 var(--accent); }
 .workspace-bot .bot-mark { width: 34px; height: 34px; margin: 0; border-radius: 8px; }
 .workspace-bot-copy { flex: 1; }
@@ -943,7 +950,26 @@ label.checkbox { display: flex; align-items: center; }
 .teaching-chat .preview-content > * { margin-block-end: 12px; }
 .teaching-chat dd { margin-inline-start: 14px; overflow-wrap: anywhere; }
 .teaching-chat .preview-content dl > div { padding-block: 3px; }
+.teaching-chat .preview-head .mobile-control { display: none; }
+.student-records-section { display: grid; align-content: start; gap: 12px; min-width: 0; }
+.student-records-section :is(h3,p,dl) { margin: 0; overflow-wrap: anywhere; }
+.student-record-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-strong); }
+.student-record-tabs button { padding: 8px 13px; min-height: 40px; background: none; border: 0; color: var(--muted); font: inherit; }
+.student-record-tabs button[aria-pressed="true"] { color: var(--accent); box-shadow: inset 0 -2px var(--accent); font-weight: 650; }
+.student-list-back { justify-self: start; }
+.student-records-list { display: grid; gap: 0; list-style: none; margin: 0; padding: 0; }
+.student-records-list > li { display: grid; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.student-records-list small { color: var(--muted); }
+.student-directory > li { padding: 0; }
+.student-directory button { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 3px 8px; padding: 9px 8px;
+  min-height: 48px; color: var(--text); background: none; border: 0; font: inherit; text-align: start; }
+.student-directory button:hover { background: var(--raised); }
+.student-directory button span { color: var(--muted); font-size: 13px; }
+.student-directory button small { grid-column: 1 / -1; }
+.student-counts > div { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.student-counts dd { flex-shrink: 0; max-width: 60%; }
 @media (max-width:760px) {
+  .teaching-chat .preview-head .mobile-control { display: inline-flex; }
   .specialist-chat.with-preview .preview-toggle { display: inline-flex; }
   .specialist-chat:not(.specialist-preview-open) .specialist-preview { display: none; }
 }

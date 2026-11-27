@@ -111,6 +111,7 @@ export function Directory({workspace,selected,home,refresh,online}) {
   const earlier=workspace.conversations.slice(0,5);
   const highlight=selected?bots.find(bot=>bot.id===selected):null;
   const installed=new Set(workspace.installedBots??bots.map(bot=>bot.id));
+  const sidebar=new Set(workspace.sidebarBots??installed);
   const searchText=search.trim().normalize('NFKC').toLocaleLowerCase('zh-CN');
   const categories=[...new Set(bots.map(bot=>bot.category))];
   const subcategories=[...new Set(bots.filter(bot=>bot.category===category).map(bot=>bot.subcategory??'通用'))];
@@ -120,13 +121,13 @@ export function Directory({workspace,selected,home,refresh,online}) {
   const sections=home||highlight?[[null,visible]]:categories.map(name=>[name,visible.filter(bot=>bot.category===name)])
     .filter(([,items])=>items.length);
   useEffect(()=>setOpening(null),[selected]);
-  async function install(bot) {
+  async function install(bot,sidebarOnly=false) {
     if (adding || !online) return;
     setAdding(bot.id);setError('');
     try {
       const {id}=await api('/bot-instances',{botId:bot.id});
-      routeTo(workspace.workspace.chat?'group':'chat/'+id);
-      void refresh();
+      if(!sidebarOnly)routeTo(workspace.workspace.chat?'group':'chat/'+id);
+      await refresh();
     } catch(error) {setError(error.message);}
     finally {setAdding(null);}
   }
@@ -152,6 +153,7 @@ export function Directory({workspace,selected,home,refresh,online}) {
       <div className="directory-grid market-grid">
       {items.map(bot=>{
         const room=workspace.conversations.find(room=>room.botId===bot.id);
+        const hidden=workspace.workspace.id==='personal'&&installed.has(bot.id)&&!sidebar.has(bot.id);
         return <section className="directory-card" key={bot.id}>
         <div className="directory-card-head"><BotMark bot={bot} className="large"/><div><h2>{bot.name}</h2><p>{bot.subtitle}</p></div>
           <span className={'chip '+(bot.blocked?'wait':'success')}><i className="phase-dot"/>{needsReassembly(bot)?'待重新装配':bot.blocked?'依赖待配置':bot.kind==='teaching'&&!bot.trial?'教师账号':['asr','captions','visual','template'].includes(bot.mode)?'需语音模型':'可用'}</span></div>
@@ -160,8 +162,11 @@ export function Directory({workspace,selected,home,refresh,online}) {
         {bot.blocked&&<p className="muted">{bot.blocked} <a href={dependencyHref(bot)}>{needsReassembly(bot)?'查看 Bot 版本':'检查依赖'}</a></p>}
         <div className="directory-actions">
           {room?<a className="button primary" href={'#chat/'+room.id}>打开对话<ArrowRight size={16}/></a>
-            :<button className="button primary" disabled={!!adding||!online} onClick={()=>void install(bot)}><Plus size={17}/>
-              {adding===bot.id?'正在添加…':installed.has(bot.id)?'打开对话':workspace.workspace.id==='personal'?'添加到工作区':'加入群组'}</button>}
+            :<button className="button primary" disabled={!!adding||!online} onClick={()=>void install(bot,hidden)}><Plus size={17}/>
+              {adding===bot.id?'正在添加…':hidden?'加回侧栏':installed.has(bot.id)?'打开对话':workspace.workspace.id==='personal'?'添加到工作区':'加入群组'}</button>}
+          {room&&hidden&&
+            <button className="button" type="button" disabled={!!adding||!online} onClick={()=>void install(bot,true)}>
+              <Plus size={16}/>{adding===bot.id?'正在添加…':'加回侧栏'}</button>}
           {installed.has(bot.id)&&<button className="button" disabled={!!bot.blocked||!online} onClick={()=>setOpening(bot)}>新建会话</button>}
         </div>
       </section>;})}

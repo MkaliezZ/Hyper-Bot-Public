@@ -227,7 +227,7 @@ function App() {
   return <div className={'app-shell'+(railCollapsed?' nav-collapsed':'')+(roomId||page==='group'?' is-chat':'')}>
     {workspace&&<WorkspaceNav workspace={workspace} groups={groups.length?groups:[workspace.workspace]}
       route={page} roomId={roomId} open={mobileNav} online={online} onNew={beginConversation}
-      onSearch={searchConversations} searchQuery={filters.q}
+      onSearch={searchConversations} searchQuery={filters.q} refresh={refresh} notify={setToast}
       onCollapse={()=>setRailCollapsed(true)} onClose={closeNav} onNavigate={chooseNav}/>}
     {mobileNav&&<button type="button" tabIndex={-1} className="nav-scrim" aria-label="关闭导航" onClick={closeNav}/>}
     <div className="page-area" ref={pageArea} inert={mobileNav}>

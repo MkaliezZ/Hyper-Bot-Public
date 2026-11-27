@@ -3,6 +3,7 @@ import { Archive, BookOpen, Check, ChevronsUpDown, Grid2X2, History, House, Layo
   Users, Plus, Search, Settings2, X } from 'lucide-react';
 import { api, browseHref, currentWorkspace, workspaceHref } from './client.js';
 import { BotMark } from './components.jsx';
+import { useDetailsMenu } from './details-menu.js';
 
 function WorkspaceMark({name}) {
   return <span className="workspace-mark" aria-hidden="true">{[...name][0]}</span>;
@@ -55,13 +56,16 @@ function WorkspacePicker({catalog,online,onClose}) {
     </form></dialog>;
 }
 
-export function WorkspaceNav({workspace,groups,route,roomId,open,onClose,onCollapse,onNavigate,onNew,onSearch,searchQuery,online}) {
+export function WorkspaceNav({workspace,groups,route,roomId,open,onClose,onCollapse,onNavigate,onNew,onSearch,searchQuery,online,refresh,notify}) {
   const [picker,setPicker]=useState(false);
   const [list,setList]=useState(currentWorkspace==='personal'?'bot':'group');
   const [search,setSearch]=useState('');
   const [searches,setSearches]=useState(readSearches);
-  const menu=useRef();
-  const bots=workspace.bots.filter(bot=>bot.status==='enabled'&&workspace.installedBots.includes(bot.id));
+  const [removing,setRemoving]=useState(null);
+  const menu=useDetailsMenu();
+  const plaza=useRef(null);
+  const sidebarBots=workspace.sidebarBots??workspace.installedBots;
+  const bots=workspace.bots.filter(bot=>bot.status==='enabled'&&sidebarBots.includes(bot.id));
   const currentRoom=workspace.conversations.find(room=>room.id===roomId);
   const currentBot=bots.find(bot=>bot.id===currentRoom?.botId)??(bots.length===1?bots[0]:null);
   const activeBot=workspace.conversations.find(room=>room.id===workspace.active?.conversation)?.botId;
@@ -76,7 +80,19 @@ export function WorkspaceNav({workspace,groups,route,roomId,open,onClose,onColla
     catch { /* Search remains available for this page. */ }
     onSearch(query);
   }
-  useEffect(()=>{if(menu.current)menu.current.open=false;},[route,roomId]);
+  async function removeBot(event,bot) {
+    if(removing||!online)return;
+    const restoreFocus=document.activeElement===event.currentTarget;
+    setRemoving(bot.id);
+    try {
+      await api('/bot-instances/remove-from-sidebar',{botId:bot.id});
+      if(restoreFocus)plaza.current?.focus({preventScroll:true});
+      await refresh();
+      notify('已从侧栏移除「'+bot.name+'」。');
+    } catch(error) {notify(error.message);}
+    finally {setRemoving(null);}
+  }
+  useEffect(()=>{if(menu.ref.current)menu.ref.current.open=false;},[menu.ref,route,roomId,open]);
   return <aside className={'rail'+(open?' open':'')} aria-label="工作区导航" id="workspace-nav"
     role={open?'dialog':undefined} aria-modal={open||undefined} onClick={onNavigate}>
     <div className="rail-head">
@@ -114,21 +130,20 @@ export function WorkspaceNav({workspace,groups,route,roomId,open,onClose,onColla
       {bots.map(bot=>{
         const room=workspace.conversations.find(item=>item.botId===bot.id);
         const waiting=bot.id===activeBot&&workspace.active.state==='waiting_approval';
-        return <a key={bot.id} className="nav-line workspace-bot" href={room?'#chat/'+room.id:'#bots/'+bot.id}
+        return <div className="workspace-bot-row" key={bot.id}><a className="nav-line workspace-bot" href={room?'#chat/'+room.id:'#bots/'+bot.id}
           aria-current={currentRoom?.botId===bot.id?'page':undefined}>
           <BotMark bot={bot}/><span className="workspace-bot-copy"><strong>{bot.name}</strong>
             <small>{waiting?'待确认写入':room?.title??'打开 Bot'}</small></span>
           {waiting&&<i className="status-dot" aria-hidden="true"/>}
-        </a>;
+        </a><button type="button" className="icon-button sidebar-bot-remove" title="从侧栏移除"
+          aria-label={'从侧栏移除 '+bot.name} disabled={!online||!!removing} onClick={event=>void removeBot(event,bot)}><X size={15}/></button></div>;
       })}
       {!bots.length&&<a className="nav-line workspace-empty" href="#bots"><Plus/>添加 Bot</a>}</>}
     </nav>
     <div className="rail-foot workspace-bottom">
-      <a className="nav-line" href="#bots" aria-current={route==='bots'?'page':undefined}><Grid2X2/>Bot广场</a>
-      <details className="workspace-more" ref={menu} onBlur={event=>{
-        if(!event.currentTarget.contains(event.relatedTarget))event.currentTarget.open=false;
-      }} onKeyDown={event=>{
-        if(event.key==='Escape'&&menu.current?.open){event.stopPropagation();menu.current.open=false;menu.current.querySelector('summary').focus();}
+      <a ref={plaza} className="nav-line" href="#bots" aria-current={route==='bots'?'page':undefined}><Grid2X2/>Bot广场</a>
+      <details className="workspace-more" {...menu} onClick={event=>{
+        if(event.target.closest('a')?.hash===location.hash)event.currentTarget.open=false;
       }}>
         <summary className="icon-button" role="button" aria-label="工作区菜单" title="工作区菜单"><MoreHorizontal size={19}/></summary>
         <div className="workspace-menu">

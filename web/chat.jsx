@@ -8,6 +8,7 @@ import { ConversationHandoff } from './conversation-handoff.jsx';
 import { PasteMaterial } from './paste-material.jsx';
 import { MemoryEditor } from './workspace-memory.jsx';
 import { EntityPanel } from './entity-archive.jsx';
+import { useDetailsMenu } from './details-menu.js';
 
 const live=new Set(['queued','running','recovering','waiting_approval','saving','stopping']);
 const recoverLabels={reconciled:'已核对保存回执',required:'写入结果待核对'};
@@ -95,16 +96,12 @@ function ThreadTurn({run,bot,room,artifact,online,onSource,onArtifact,onPreview,
       recovering:'正在读取这轮任务的本机执行记录。',
       waiting_approval:run.engineRecovered?'已找回本轮分镜。请核对预览，确认是否保存到原项目。':'分镜已经写好。请看预览，确认是否保存到原项目。',
       saving:'正在写入并回读原项目回执。',stopping:'正在等待执行器停止。'})[run.state] || run.error || '本轮已结束。';
+  const showOptions=!run.endedAt&&!!run.prompt&&online;
+  const optionsMenu=useDetailsMenu(showOptions);
   return <div className="turn">
     <article className="message sent" aria-label="我的消息">
       <div className="byline">我 <time dateTime={run.createdAt}>{clock(run.createdAt)}</time>
-        {!run.endedAt&&run.prompt&&online&&<details className="message-options" onBlur={event=>{
-          if(!event.currentTarget.contains(event.relatedTarget))event.currentTarget.open=false;
-        }} onKeyDown={event=>{
-          if(event.key==='Escape'&&event.currentTarget.open){
-            event.stopPropagation();event.currentTarget.open=false;event.currentTarget.querySelector('summary').focus();
-          }
-        }}><summary role="button" aria-label="消息操作"><MoreHorizontal size={16}/></summary>
+        {showOptions&&<details className="message-options" {...optionsMenu}><summary role="button" aria-label="消息操作"><MoreHorizontal size={16}/></summary>
           <div className="workspace-menu"><button className="nav-line" type="button" onClick={event=>{
             const details=event.currentTarget.closest('details');
             details.open=false;
@@ -153,15 +150,11 @@ function ThreadTurn({run,bot,room,artifact,online,onSource,onArtifact,onPreview,
 }
 
 function ConversationMenu({room,bot,workspace,onNew,online}) {
-  const menu=useRef();
+  const menu=useDetailsMenu();
   const rooms=workspace.conversations.filter(item=>item.botId===bot.id);
   const active=workspace.bots.find(item=>item.id===bot.id&&item.status==='enabled');
-  function hide() {menu.current.open=false;}
-  return <details className="conversation-menu" ref={menu} onBlur={event=>{
-    if(!event.currentTarget.contains(event.relatedTarget))hide();
-  }} onKeyDown={event=>{
-    if(event.key==='Escape'&&menu.current.open){event.stopPropagation();hide();menu.current.querySelector('summary').focus();}
-  }}>
+  function hide() {menu.ref.current.open=false;}
+  return <details className="conversation-menu" {...menu}>
     <summary className="icon-button" role="button" aria-label="切换此 Bot 的会话"><ChevronDown size={16}/></summary>
     <div className="workspace-menu">
       {active&&online&&!active.blocked&&<button type="button" className="nav-line" onClick={()=>{hide();onNew(active);}}><Plus/>新建会话</button>}

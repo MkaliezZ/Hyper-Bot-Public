@@ -40,14 +40,15 @@ export function TeachingConversation({room,bot,navButton}) {
   const [previewOpen,setPreviewOpen]=useState(false),[project,setProject]=useState(null),[projects,setProjects]=useState([]);
   const [binding,setBinding]=useState(''),[track,setTrack]=useState('k12'),[goal,setGoal]=useState(''),[file,setFile]=useState(null),[pages,setPages]=useState('');
   const [chosen,setChosen]=useState(null),[card,setCard]=useState(null),[preview,setPreview]=useState(''),[edition,setEdition]=useState('student');
-  const [records,setRecords]=useState(null),[connection,setConnection]=useState(null);
+  const [recordsPreview,setRecordsPreview]=useState(null),[connection,setConnection]=useState(null);
   const picker=useRef(),attempt=useRef(),inFlight=useRef(false),generation=useRef(0);
   const call=useCallback((action,options)=>teachingRequest(room.id,action,options),[room.id]);
   const recordMode=['operations','students'].includes(bot.target),isBot=bot.target==='bot',lesson=bot.target==='classroom';
+  const previewTitle=bot.target==='students'?'学员档案':'教培成果';
   const task=project?.tasks?.find(t=>t.task_id===chosen)??project?.tasks?.[0];
   const artifact=task?.artifact_ids?.[0];
   const active=project?.tasks?.some(t=>['running','queued'].includes(t.status));
-  function clear(){generation.current++;setLogged(false);setProject(null);setProjects([]);setRecords(null);setPreview('');setCard(null);setFile(null);setGoal('');setChosen(null);setConnection(null);attempt.current=null;}
+  function clear(){generation.current++;setLogged(false);setProject(null);setProjects([]);setPreview('');setCard(null);setFile(null);setGoal('');setChosen(null);setConnection(null);attempt.current=null;}
   useEffect(()=>{window.addEventListener('teaching-expired',clear);return ()=>window.removeEventListener('teaching-expired',clear);},[]);
   useEffect(()=>{
     if(!logged)return;
@@ -120,10 +121,10 @@ export function TeachingConversation({room,bot,navButton}) {
   const visibleCard=card?.artifact_id===artifact?card:null;
   return <div className={'conversation with-preview specialist-chat teaching-chat'+(previewOpen?' specialist-preview-open':'')}>
     <main className="chat" aria-label={bot.name+'会话'}><header className="chat-head">{navButton}<BotMark bot={bot} className="large"/>
-    <div className="chat-ident"><h1>{bot.name}</h1><p>英语教培</p></div><button className="preview-toggle" aria-expanded={previewOpen} aria-controls="teaching-preview" onClick={()=>setPreviewOpen(!previewOpen)}><PanelRight size={18}/>成果</button></header>
+    <div className="chat-ident"><h1>{bot.name}</h1><p>英语教培</p></div><button className="preview-toggle" type="button" aria-expanded={previewOpen} aria-controls="teaching-preview" onClick={()=>setPreviewOpen(!previewOpen)}><PanelRight size={18}/>{bot.target==='students'?previewTitle:'成果'}</button></header>
     <div className="thread-scroll"><div className="thread-body teach-fields">
     {logged?<>{!bot.trial&&<div className="teach-session"><span>教师工作台</span><button disabled={busy} className="text-button" onClick={()=>run(async()=>{try{await call('logout',{body:{}});}finally{teacherSession(null);clear();}})}>退出教师账号</button></div>}
-    {recordMode?<TeachingRecords key={bot.id} bot={bot} call={call} onPreview={setRecords} onError={setError}/>:<>
+    {recordMode?<TeachingRecords key={bot.id} bot={bot} call={call} preview={recordsPreview} onError={setError}/>:<>
     {isBot&&connection&&connection.connection!=='ready'&&<p role="status">当前教师工作台的专用 Bot {connection.connection==='offline'?'暂时离线':'尚未配置'}。</p>}
     {!project?<><Select label="教培任务记录" value={binding} onChange={e=>setBinding(e.target.value)} options={Object.fromEntries([['','创建任务记录'],...projects.map(p=>[p.id,p.title])])}/>
       {binding&&<button className="button" disabled={busy} onClick={()=>run(async()=>{await bind();setProject(await call('project'));})}>接续所选记录</button>}</>
@@ -145,8 +146,8 @@ export function TeachingConversation({room,bot,navButton}) {
     {file?.name.toLowerCase().endsWith('.pdf')&&<label>页码范围<input placeholder="例如 2-5" pattern="[1-9][0-9]{0,2}-[1-9][0-9]{0,2}" value={pages} onChange={e=>setPages(e.target.value)}/></label>}</>}
     <textarea aria-label="任务说明" placeholder={isBot?'输入教培任务':lesson?'这节课想重点讲什么？':'想让学生重点练什么？'} value={goal} maxLength={isBot?1800:300} onChange={e=>setGoal(e.target.value)}/>
     <button className="button primary" disabled={busy||active||(isBot?!goal.trim()||connection?.connection!=='ready':!file)}>{isBot?'发送任务':lesson?'生成互动课件':'识别知识点'}</button></form></footer>}
-    </main><aside id="teaching-preview" className="preview specialist-preview" aria-label="教培成果"><header className="preview-head"><h2>教培成果</h2><button className="icon-button mobile-control" aria-label="关闭成果" onClick={()=>setPreviewOpen(false)}><X size={18}/></button></header>
-    <div className="preview-content teach-fields">{logged&&(recordMode?records:visibleCard?<><h3>{visibleCard.title}</h3>
+    </main><aside id="teaching-preview" className="preview specialist-preview" aria-label={previewTitle}><header className="preview-head"><h2>{previewTitle}</h2><button className="icon-button mobile-control" type="button" aria-label={'关闭'+previewTitle} onClick={()=>setPreviewOpen(false)}><X size={18}/></button></header>
+    <div className="preview-content teach-fields" ref={recordMode?setRecordsPreview:undefined}>{logged&&!recordMode&&(visibleCard?<><h3>{visibleCard.title}</h3>
     {visibleCard.kind==='practice_analysis'?<PracticeChoices key={artifact} card={visibleCard} busy={busy||active} exec={execute}/>:visibleCard.kind==='bot_reply'?<p>{visibleCard.reply}</p>:<>
       <p>{visibleCard.objective}</p>{visibleCard.kind==='practice_pack'&&<Select label="预览版本" value={edition} onChange={e=>setEdition(e.target.value)} options={{student:'学生练习单',teacher:'教师参考'}}/>}
       {preview&&<iframe key={preview} title="教培成果预览" className="teach-preview-frame" sandbox={visibleCard.kind==='lesson'?'allow-scripts allow-forms':''} src={preview}/>}

@@ -134,6 +134,13 @@ test('workspace installation, drafts, materials and backup stay in their own gro
   try {
     host=await launch({options:{data:source,providerKey:''},windowKey});
     const legacy=await api('/rooms',{botId:'media',revision:1,title:'原个人会话'},201);
+    const personal=()=>api('/workspace');
+    const remove='/bot-instances/remove-from-sidebar';
+    assert.ok((await personal()).sidebarBots.includes('media'));
+    await api(remove,{botId:'media'});
+    await api(remove,{botId:'media'});
+    assert.ok(!(await personal()).sidebarBots.includes('media'));
+    assert.ok((await personal()).installedBots.includes('media'));
     const endpoint='/v1/workspaces';
     const [first,same]=await Promise.all([
       api(endpoint,{name:'内容工作室'},201),api(endpoint,{name:' 内容工作室 '},201)
@@ -154,6 +161,8 @@ test('workspace installation, drafts, materials and backup stay in their own gro
     await api(a+'/bot-instances',{botId:'brief'});
     assert.deepEqual((await api(a+'/workspace')).installedBots,['media','brief']);
     assert.deepEqual((await api(b+'/workspace')).installedBots,['media']);
+    await api(a+remove,{botId:'media'},403);
+    assert.deepEqual((await api(a+'/workspace')).sidebarBots,['media','brief']);
     const fact={title:'本组口播约定',content:'开场保留采访者完整原话。',bots:['media'],confirmed:true};
     assert.equal((await api(a+'/rooms/'+room.id)).useWorkspaceMemory===true,false);
     const note=await api(a+'/memories',fact,201);
@@ -184,6 +193,11 @@ test('workspace installation, drafts, materials and backup stay in their own gro
     await backupWorkspace(source,archive);
     await restoreWorkspace(archive,restored);
     host=await launch({options:{data:restored,providerKey:''},windowKey});
+    assert.ok(!(await personal()).sidebarBots.includes('media'));
+    assert.equal((await api('/rooms/'+legacy.id)).title,'原个人会话');
+    assert.equal((await api('/bot-instances',{botId:'media'})).id,legacy.id);
+    assert.ok((await personal()).sidebarBots.includes('media'));
+    assert.deepEqual((await api(a+'/workspace')).sidebarBots,['media','brief']);
     assert.equal((await api(a+'/rooms/'+room.id)).draft.text,'内容组草稿');
     assert.equal((await api(a+'/rooms/'+room.id+'/materials/'+upload.id)).content,content);
     assert.equal((await api(b+'/rooms/'+isolated.id)).draft.text,'运营草稿');

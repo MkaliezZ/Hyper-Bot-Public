@@ -77,6 +77,10 @@ function apiMethod(request,response,url,host,streams,configuring) {
     if (get && first==='workspace' && !key) return json(response,{...app.index(),workspace:host.group});
     if(get&&first==='conversation-search'&&!key) return json(response,app.searchConversations((url.searchParams.get('q')??'').slice(0,100)));
     if (post && first==='bot-instances' && !key) return json(response,app.installBot(await input()));
+    if (post && first==='bot-instances' && key==='remove-from-sidebar' && !part) {
+      if(host.group.id!=='personal')throw new Problem(403,'只能从个人工作区侧栏移除 Bot。','workspace_scope');
+      return json(response,app.removeSidebarBot(await input()));
+    }
     if (first==='entity') {
       if (get && !key) return json(response,app.entityArchive());
       if (get && key==='sources' && !part) return json(response,app.entitySources());

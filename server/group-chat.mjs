@@ -247,7 +247,9 @@ export function groupChat(originOf,windowKey) {
           '本机服务已重启，请重新发送这条消息。':'主机已重启，请核对成员任务记录后重新派活。'});
       }
     }
-    return {folder:(await binding(host))?.folder??'',messages:host.store.read().groupMessages??[],files:state.groupFiles??[]};
+    const folder=(await binding(host))?.folder??'';
+    const snapshot=host.store.read();
+    return {folder,messages:snapshot.groupMessages??[],files:snapshot.groupFiles??[]};
   },send(host,raw){
     const previous=sending.get(host)??Promise.resolve();
     const operation=previous.then(()=>send(host,raw));
