@@ -1,7 +1,7 @@
 {
   "name": "hyper-bot",
   "productName": "Hyper Bot",
-  "version": "0.1.0-dev.66",
+  "version": "0.1.0-dev.67",
   "private": true,
   "type": "module",
   "engines": {

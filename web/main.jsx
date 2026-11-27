@@ -15,6 +15,7 @@ import { SpecialistConversation } from './specialist-conversation.jsx';
 import { TeachingAssistant } from './teaching-assistant.jsx';
 import { EntityArchive } from './entity-archive.jsx';
 import { StudentDirectory } from './student-directory.jsx';
+import { studentContext } from './teaching-client.js';
 import './theme.css';
 
 import { ActiveRunLink } from './components.jsx';
@@ -54,6 +55,8 @@ function App() {
   const requestedArtifact=params.get('artifact');
   const requestedMaterial=params.get('material');
   const requestedRun=params.get('run');
+  const teachingContext=studentContext(params);
+  const {studentId,enrollmentId,artifactId}=currentWorkspace==='personal'?teachingContext:{};
   const filters={bot:params.get('bot')??'',revision:page==='history'&&params.get('bot')?params.get('revision')??'':'',
     q:(params.get('q')??'').slice(0,100)};
   function changeFilters(next) {
@@ -242,7 +245,9 @@ function App() {
         </div>}
         {bot.kind==='teaching'?(bot.target==='bot'&&bot.trial
           ?<TeachingAssistant key={roomId} room={room} bot={bot} workspace={workspace} navButton={navButton} online={online} refresh={refresh}/>
-          :<TeachingConversation key={roomId} room={room} bot={bot} navButton={navButton}/>)
+          :<TeachingConversation key={roomId} room={room} bot={bot} navButton={navButton} workspace={workspace}
+            directoryLinks={currentWorkspace==='personal'} studentId={studentId} enrollmentId={enrollmentId}
+            learningArtifactId={artifactId} taskId={teachingContext.taskId}/>)
         :bot.kind==='workbench'?<SpecialistConversation key={roomId} room={room} bot={bot} workspace={workspace} navButton={navButton}
           refresh={refresh} online={online}/>
         :<Chat key={roomId} room={room} bot={bot} workspace={workspace} drafts={drafts} navButton={navButton} refresh={refresh} notify={setToast}
@@ -261,7 +266,7 @@ function App() {
                 :page==='history'?<History workspace={workspace} filters={filters} onChange={changeFilters}/>
                 :page==='recovery'?<Recovery workspace={workspace} selected={identifier} online={online} refresh={refresh} notify={setToast}/>
                 :page==='memory'?<WorkspaceMemory workspace={workspace} online={online} notify={setToast}/>
-                :page==='students'&&currentWorkspace==='personal'?<StudentDirectory trial={workspace.bots.find(bot=>bot.id==='teaching-students')?.trial!==false}/>
+                :page==='students'&&currentWorkspace==='personal'?<StudentDirectory key={studentId} workspace={workspace} online={online} studentId={studentId}/>
                 :page==='entity'&&workspace.entityArchive?<EntityArchive version={workspace.version} selected={identifier}
                   online={online} notify={setToast} refresh={refresh}/>
                 :<Directory workspace={workspace} selected={identifier} home={page==='home'} refresh={refresh} online={online}/>}

@@ -47,7 +47,7 @@ const signalInput = z.object({
   facts: z.string().trim().min(1).max(1500), reviewNotes: z.string().trim().max(1000),
 }).strict();
 
-const enrollmentInput = z.object({
+export const enrollmentInput = z.object({
   id, label: alias, track, endOn: date.nullable(), remainingLessons: z.number().min(0).max(10000).nullable(),
   attendancePct: attendance, feedback, issue: z.enum(['none', 'schedule', 'learning', 'payment', 'other']),
   state: z.enum(['unpaid', 'planned', 'paid', 'opt_out', 'paused', 'dispute']),
@@ -63,6 +63,7 @@ const historyInput = z.object({
 const followUpInput = z.object({
   date, outcome: z.enum(['contacted', 'payment_planned', 'no_response', 'paused', 'resolved']),
   note: z.string().trim().max(400).refine(value => !/\S+@\S+|(?:\d[ ()-]*){7,}/.test(value)),
+  expectedStudentId: z.string().uuid().optional(),
 }).strict();
 
 const csvInput = z.object({ csv: z.string().min(1).max(maxCsvBytes) }).strict();
@@ -392,11 +393,16 @@ export function registerOperations(app: FastifyInstance, { db, auth, PublicError
   app.post(`${base}/renewals/:id/follow-up`, async (request, reply) => {
     const { owner } = auth(request);
     const { id: enrollmentId } = validate(z.object({ id }).strict(), request.params);
-    const followUp = validate(followUpInput, request.body);
+    const input = validate(followUpInput, request.body);
+    const { expectedStudentId, ...followUp } = input;
     if (followUp.date > opsDate()) throw new PublicError(422, '跟进记录不能填写未来日期。');
-    const result = writeAction(request, owner, `follow-up/${enrollmentId}`, followUp, () => {
+    const result = writeAction(request, owner, `follow-up/${enrollmentId}`, input, () => {
       const row = singleQuery.get(owner, 'renewal', enrollmentId);
       if (!row) throw new PublicError(404, '未找到可操作的续费记录。');
+      if (expectedStudentId && !db.prepare(`SELECT 1 FROM student_enrollments
+        WHERE owner=? AND enrollment_id=? AND student_id=?`).get(owner, enrollmentId, expectedStudentId)) {
+        throw new PublicError(409, '课程段的学员关联已变化，请刷新后重试。');
+      }
       const enrollment = JSON.parse(String(row.payload)) as OpsEnrollment;
       const lastRecorded = latestFollowUp.get(owner, enrollmentId)?.date;
       const followUpId = randomUUID();

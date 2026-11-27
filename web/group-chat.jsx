@@ -3,7 +3,8 @@ import {AtSign,Folder,Paperclip,Users,PanelRight,X} from 'lucide-react';
 import {api,apiPath,clock} from './client.js';
 import {BotMark} from './components.jsx';
 import {TeachingRecords} from './teaching-records.jsx';
-import {teachingRequest,teacherSession} from './teaching-client.js';
+import {teachingRequest} from './teaching-client.js';
+import {TeachingAccount,useTeachingSession} from './teaching-session.jsx';
 import {FolderField} from './workspace-nav.jsx';
 
 const phases={working:'执行中',approval:'待确认',input:'待补充',done:'已完成',failed:'失败',interrupted:'已中断'};
@@ -37,16 +38,15 @@ function FilePreview({file,lesson}){
     <a className="button compact" href={getFile(file.id)} download>下载文件</a></section>;
 }
 function RecordEditor({task,bot}){
-  const [ready,setReady]=useState(false),[error,setError]=useState(''),[detail,setDetail]=useState(null);
+  const [preview,setPreview]=useState(null);
   const call=useCallback((action,options)=>teachingRequest(task.room,action,options),[task.room]);
-  useEffect(()=>{
-    const ctrl=new AbortController();
-    call('trial',{body:{},signal:ctrl.signal}).then(result=>{if(!ctrl.signal.aborted){teacherSession(result.token);setReady(true);}})
-      .catch(e=>{if(!ctrl.signal.aborted)setError(e.message);});
-    return ()=>ctrl.abort();
-  },[call]);
-  return <div className="teach-fields">{error&&<p className="form-error" role="alert">{error}</p>}
-    {ready?<><TeachingRecords bot={bot} call={call} onPreview={setDetail} onError={setError}/>{detail}</>:<p>正在打开记录…</p>}</div>;
+  const session=useTeachingSession(call,true);
+  return <div className="teach-fields">
+    <TeachingAccount session={session}/>
+    {session.error&&<p className="form-error" role="alert">{session.error}</p>}
+    {session.logged&&<><TeachingRecords area={bot.id.slice('teaching-'.length)} title={bot.name} call={call} preview={preview} onError={session.setError}/>
+      <div ref={setPreview}/></>}
+  </div>;
 }
 export function GroupChat({workspace,navButton}){
   const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[text,setText]=useState('');

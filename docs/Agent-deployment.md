@@ -108,4 +108,4 @@ id,track,asOf,endOn,observedThrough,renewed,arm,randomized,experimentId,feedback
 
 导入续费名单后，可在「续费与跟进」登记联系结果。登记学员后，可在「课程段关联」选取课程段，在「学习记录」选取已生成的课件或练习。
 
-如果 4367 端口已占用，Agent 可以为新进程选用空闲端口并设置 `HYPER_BOT_PORT`，再把实际地址交给用户。依赖检查失败时，先确认当前 Node.js、Python 和仓库路径，再重跑相应的安装步骤。
+如果 4367 端口已占用，Agent 可以为新进程选用空闲端口并设置 `HYPER_BOT_PORT`，再把实际地址交给用户。学员档案提示接口不存在时，退出旧进程，从更新后的目录重新启动，再执行 `npm run verify:deployment`。依赖检查失败时，先确认当前 Node.js、Python 和仓库路径，再重跑相应的安装步骤。

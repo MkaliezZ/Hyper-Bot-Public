@@ -973,6 +973,11 @@ label.checkbox { display: flex; align-items: center; }
 .student-directory-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .student-directory-card h2 { margin: 0; font-size: 17px; }
 .student-directory-card .student-counts { margin: 0; }
+.student-bot-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.page-content > .student-bot-links { margin-bottom: 16px; }
+.student-filters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.student-record-title { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.student-records-list > li > .text-button { justify-self: start; text-align: start; }
 @media (max-width:760px) {
   .student-directory-page { grid-template-columns: 1fr; }
   .teaching-chat .preview-head .mobile-control { display: inline-flex; }

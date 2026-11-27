@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { OpsEnrollment, OpsFollowUp } from '../shared/operations.js';
 import type { StudentArtifact, StudentDetail, StudentDirectory, StudentLearningLink, StudentProfile } from '../shared/students.js';
 import { isOpsDate } from './operations_calendar.js';
+import { enrollmentInput as courseInput } from './operations.js';
 
 type Dependencies = {
   db: DatabaseSync;
@@ -33,6 +34,7 @@ const studentFields = z.object({
 const updateFields = studentFields.extend({ expectedVersion: z.number().int().positive() }).strict();
 const studentParams = z.object({ id: studentId }).strict();
 const enrollmentInput = z.object({ enrollmentId: externalCode }).strict();
+const newEnrollmentInput = courseInput.pick({ label:true, track:true, endOn:true, remainingLessons:true, state:true, contactAllowed:true });
 const learningInput = z.object({
   artifactId: z.string().uuid(),
   status: z.enum(['reference', 'used', 'assigned', 'completed']).default('reference'),
@@ -112,6 +114,7 @@ export function registerStudents(app: FastifyInstance, { db, auth, PublicError }
     return followUpStatement?.all(owner, enrollmentId).map(item => JSON.parse(String(item.payload)) as OpsFollowUp) ?? [];
   }
   const getEnrollmentLink = db.prepare('SELECT student_id FROM student_enrollments WHERE owner=? AND enrollment_id=?');
+  const linkEnrollment = db.prepare('INSERT INTO student_enrollments(owner,enrollment_id,student_id,linked_at) VALUES (?,?,?,?)');
 
   const artifactProjection = `a.id AS artifactId,t.id AS taskId,t.project AS projectId,
     json_extract(a.card,'$.kind') AS kind,json_extract(a.card,'$.title') AS title,
@@ -237,10 +240,24 @@ export function registerStudents(app: FastifyInstance, { db, auth, PublicError }
       const prior = getEnrollmentLink.get(owner, input.enrollmentId);
       if (prior && prior.student_id !== id) throw new PublicError(409, '此课程段已关联到本账号下的另一名学员。');
       if (!prior) {
-        const insert = db.prepare('INSERT INTO student_enrollments(owner,enrollment_id,student_id,linked_at) VALUES (?,?,?,?)');
-        insert.run(owner, input.enrollmentId, id, new Date().toISOString());
+        linkEnrollment.run(owner, input.enrollmentId, id, new Date().toISOString());
       }
       return { enrollmentId: input.enrollmentId };
+    });
+    return reply.code(201).send(result);
+  });
+
+  app.post(`${base}/:id/enrollments/create`, async (request, reply) => {
+    const { owner } = auth(request);
+    const { id } = validate(studentParams, request.params);
+    const input = validate(newEnrollmentInput, request.body);
+    const result = writeAction(request, owner, `enrollment-create/${id}`, input, () => {
+      studentFor(owner, id);
+      const enrollmentId = randomUUID();
+      const record: OpsEnrollment = { ...input, id:enrollmentId, attendancePct:null, feedback:'unknown', issue:'none', lastContactOn:null };
+      db.prepare(`INSERT INTO ops_records(owner,kind,id,payload) VALUES (?,'renewal',?,?)`).run(owner, enrollmentId, JSON.stringify(record));
+      linkEnrollment.run(owner, enrollmentId, id, new Date().toISOString());
+      return { enrollmentId };
     });
     return reply.code(201).send(result);
   });

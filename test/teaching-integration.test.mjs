@@ -184,12 +184,30 @@ test('teaching projects produce interactive lessons and reviewed practice', {tim
     await write('enrollments','link',{enrollmentId:'sample-term'},student.id);
     let detail=await request(rooms.enrollments+'/detail?id='+student.id);
     assert.equal(detail.enrollments[0].id,'sample-term');
+    const renewalList=await request(rooms.renewals+'/records');
+    assert.ok(renewalList.students.some(row=>row.id===student.id));
+    assert.equal(renewalList.renewals.find(row=>row.enrollment.id==='sample-term').studentId,student.id);
+    const followUp={action:'renewals',record:'sample-term',student:student.id,key:randomUUID(),
+      input:{date:'2024-07-11',outcome:'payment_planned',note:'档案内的续费跟进'}};
+    const saved=await request(rooms.renewals+'/record-write',followUp);
+    assert.deepEqual(await request(rooms.renewals+'/record-write',followUp),saved);
+    assert.equal((await request(directory+'/detail?id='+student.id)).enrollments[0].followUps[0].note,'档案内的续费跟进');
     await write('enrollments','unlink',{enrollmentId:'sample-term'},student.id);
     detail=await request(rooms.enrollments+'/detail?id='+student.id);
     assert.deepEqual(detail.enrollments,[]);
+    await request(rooms.renewals+'/record-write',{...followUp,key:randomUUID()},409);
+    const newCourse={action:'create',record:student.id,key:randomUUID(),
+      input:{label:'新建合成课程段',track:'k12',endOn:'2026-12-31',remainingLessons:2,state:'unpaid',contactAllowed:false}};
+    const {enrollmentId}=await request(rooms.enrollments+'/record-write',newCourse);
+    assert.equal((await request(rooms.enrollments+'/record-write',newCourse)).enrollmentId,enrollmentId);
+    assert.equal((await request(directory+'/detail?id='+student.id)).enrollments[0].id,enrollmentId);
+    assert.equal((await request(rooms.renewals+'/records')).renewals.find(row=>row.enrollment.id===enrollmentId).studentId,student.id);
     await write('learning','learning',{artifactId:lesson.artifact_id,status:'used',occurredOn:null,note:'合成课件记录'},student.id);
     assert.equal((await request(rooms.learning+'/detail?id='+student.id)).learning[0].artifactId,lesson.artifact_id);
-    assert.equal((await request(directory+'/detail?id='+student.id)).learning[0].artifactId,lesson.artifact_id);
+    await write('learning','learning',{artifactId:pack.artifact_id,status:'completed',occurredOn:null,note:'合成练习记录'},student.id);
+    const activities=(await request(directory+'/detail?id='+student.id)).learning;
+    assert.equal(activities.find(row=>row.artifactId===lesson.artifact_id).sourceRoom,rooms.classroom.split('/')[2]);
+    assert.equal(activities.find(row=>row.artifactId===pack.artifact_id).sourceRoom,rooms.practice.split('/')[2]);
 
     const assistant=(await request('/bot-instances',{botId:'teaching-bot'})).id;
     async function ask(text){

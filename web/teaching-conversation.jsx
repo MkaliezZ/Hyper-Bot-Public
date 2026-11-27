@@ -2,7 +2,7 @@ import React,{useState,useEffect,useCallback,useRef} from 'react';
 import {PanelRight,X} from 'lucide-react';
 import {BotMark} from './components.jsx';
 import {downloadFile} from './client.js';
-import {teachingRequest} from './teaching-client.js';
+import {openTeachingBot,studentDirectoryHref,teachingRequest} from './teaching-client.js';
 import {TeachingRecords} from './teaching-records.jsx';
 import {TeachingAccount,useTeachingSession} from './teaching-session.jsx';
 
@@ -27,9 +27,9 @@ function PracticeChoices({card,exec,busy}) {
     <button className="button primary" disabled={busy||!ids.length}>生成练习单</button></form>;
 }
 
-export function TeachingConversation({room,bot,navButton}) {
+export function TeachingConversation({room,bot,navButton,workspace,directoryLinks,studentId,enrollmentId,learningArtifactId,taskId}) {
   const [busy,setBusy]=useState(false);
-  const [previewOpen,setPreviewOpen]=useState(false),[project,setProject]=useState(null),[projects,setProjects]=useState([]);
+  const [previewOpen,setPreviewOpen]=useState(!!taskId),[project,setProject]=useState(null),[projects,setProjects]=useState([]);
   const [binding,setBinding]=useState(''),[track,setTrack]=useState('k12'),[goal,setGoal]=useState(''),[file,setFile]=useState(null),[pages,setPages]=useState('');
   const [chosen,setChosen]=useState(null),[card,setCard]=useState(null),[preview,setPreview]=useState(''),[edition,setEdition]=useState('student');
   const [recordsPreview,setRecordsPreview]=useState(null),[connection,setConnection]=useState(null);
@@ -37,7 +37,8 @@ export function TeachingConversation({room,bot,navButton}) {
   const call=useCallback((action,options)=>teachingRequest(room.id,action,options),[room.id]);
   const recordMode=['operations','students'].includes(bot.target),isBot=bot.target==='bot',lesson=bot.target==='classroom';
   const previewTitle=bot.target==='students'?'学员档案':'教培成果';
-  const task=project?.tasks?.find(t=>t.task_id===chosen)??project?.tasks?.[0];
+  const task=chosen||taskId?project?.tasks?.find(t=>t.task_id===(chosen||taskId)):project?.tasks?.[0];
+  useEffect(()=>{setChosen(null);if(taskId)setPreviewOpen(true);},[taskId]);
   const artifact=task?.artifact_ids?.[0];
   const active=project?.tasks?.some(t=>['running','queued'].includes(t.status));
   const clear=useCallback(()=>{
@@ -111,7 +112,10 @@ export function TeachingConversation({room,bot,navButton}) {
     <div className="chat-ident"><h1>{bot.name}</h1><p>英语教培</p></div><button className="preview-toggle" type="button" aria-expanded={previewOpen} aria-controls="teaching-preview" onClick={()=>setPreviewOpen(!previewOpen)}><PanelRight size={18}/>{bot.target==='students'?previewTitle:'成果'}</button></header>
     <div className="thread-scroll"><div className="thread-body teach-fields">
     <TeachingAccount session={session} disabled={busy}/>
-    {logged&&(recordMode?<TeachingRecords key={bot.id} area={bot.id.slice('teaching-'.length)} title={bot.name} call={call} preview={recordsPreview} onError={setError}/>:<>
+    {directoryLinks&&studentId&&!recordMode&&<a className="text-button" href={studentDirectoryHref(studentId)}>返回学员档案</a>}
+    {logged&&(recordMode?<TeachingRecords key={[bot.id,studentId,enrollmentId,learningArtifactId].join('/')} area={bot.id.slice('teaching-'.length)} title={bot.name}
+      call={call} preview={recordsPreview} onError={setError} directoryLinks={directoryLinks} studentId={studentId} enrollmentId={enrollmentId}
+      artifactId={learningArtifactId} openRelated={directoryLinks?(id,student)=>run(()=>openTeachingBot(workspace,id,{studentId:student})):undefined}/>:<>
     {isBot&&connection&&connection.connection!=='ready'&&<p role="status">当前教师工作台的专用 Bot {connection.connection==='offline'?'暂时离线':'尚未配置'}。</p>}
     {!project?<><Select label="教培任务记录" value={binding} onChange={e=>setBinding(e.target.value)} options={Object.fromEntries([['','创建任务记录'],...projects.map(p=>[p.id,p.title])])}/>
       {binding&&<button className="button" disabled={busy} onClick={()=>run(async()=>{await bind();setProject(await call('project'));})}>接续所选记录</button>}</>
@@ -134,6 +138,8 @@ export function TeachingConversation({room,bot,navButton}) {
     {visibleCard.kind==='practice_analysis'?<PracticeChoices key={artifact} card={visibleCard} busy={busy||active} exec={execute}/>:visibleCard.kind==='bot_reply'?<p>{visibleCard.reply}</p>:<>
       <p>{visibleCard.objective}</p>{visibleCard.kind==='practice_pack'&&<Select label="预览版本" value={edition} onChange={e=>setEdition(e.target.value)} options={{student:'学生练习单',teacher:'教师参考'}}/>}
       {preview&&<iframe key={preview} title="教培成果预览" className="teach-preview-frame" sandbox={visibleCard.kind==='lesson'?'allow-scripts allow-forms':''} src={preview}/>}
+      {directoryLinks&&<button className="button compact" type="button" disabled={busy}
+        onClick={()=>void run(()=>openTeachingBot(workspace,'teaching-learning',{studentId,artifactId:artifact}))}>登记到学员档案</button>}
       <div className="memory-actions">{(visibleCard.kind==='lesson'?['pptx','html']:[edition]).map(fmt=><button className="button compact" disabled={busy} key={fmt} onClick={()=>run(async()=>{const bytes=await call('download?id='+artifact+'&format='+fmt,{blob:true});
         downloadFile(bytes,(fmt==='student'?'学生练习单':fmt==='teacher'?'教师参考':'互动课件')+'.'+(fmt==='pptx'?'pptx':'html'));})}>下载 {fmt==='student'?'学生版':fmt==='teacher'?'教师版':fmt.toUpperCase()}</button>)}</div></>}
     </>:<p className="muted">{task?.summary||'任务完成后在这里查看成果。'}</p>)}</div></aside></div>;

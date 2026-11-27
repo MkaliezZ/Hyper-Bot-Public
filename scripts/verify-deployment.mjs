@@ -63,7 +63,12 @@ async function verify() {
   if(!workspace.localDependencies?.checks?.['teaching-lessons']?.ok){
     throw new Error('课件依赖未就绪。请运行 npm run setup:teaching 并重新启动服务。');
   }
-  console.log('已验证 '+origin.origin+' 运行 '+packageInfo.version+'，首页、JS 和 CSS 与本地构建一致。目录含 20 个自媒体专项 Bot 和 10 个英语教培 Bot，群组入口和课件依赖已就绪。');
+  const studentResponse=await fetch(new URL('/api/teaching/students/records',origin),{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(25000)});
+  const studentStatus=await studentResponse.json().catch(()=>({}));
+  if(studentResponse.status!==401||studentStatus.code!=='teaching_session'){
+    throw new Error('学员档案接口未通过校验（HTTP '+studentResponse.status+'）。请确认教培运行时已就绪，并从更新后的目录重启 Hyper Bot。');
+  }
+  console.log('已验证 '+origin.origin+' 运行 '+packageInfo.version+'，首页、JS 和 CSS 与本地构建一致。群组、学员档案及课件依赖已就绪。');
 }
 
 try {

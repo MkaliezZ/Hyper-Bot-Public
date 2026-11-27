@@ -18,33 +18,52 @@ const resourceId=value=>id.parse(value);
 const loginInput=z.strictObject({password:z.string().min(1).max(100)});
 const tracks=z.enum(['k12','toefl','ielts']);
 
-async function business({request,response,url,area,students,action,json,auth,data,input,onWrite}) {
+async function business({request,response,url,area,students,action,json,auth,data,input,onWrite,bundled,rooms,projectField}) {
   if(request.method==='GET'&&action==='records') {
+    if(area==='renewals'){
+      const [operations,directory]=await Promise.all([data('GET','/operations',{auth}),
+        data('GET','/students',{auth}).catch(error=>{if(error.status!==404)throw error;return {students:[]};})]);
+      const linked=new Map(directory.enrollments?.map(row=>[row.id,row.studentId]));
+      const renewals=operations.renewals.map(row=>({...row,studentId:linked.has(row.enrollment.id)?linked.get(row.enrollment.id):row.studentId}));
+      return json(response,{renewals,followUps:operations.followUps,students:directory.students,today:operations.today});
+    }
     const route=students?'/students?q='+encodeURIComponent((url.searchParams.get('q')??'').slice(0,80)):'/operations';
     const result=await data('GET',route,{auth});
     if(students)return json(response,{students:result.students,
-      ...(area==='enrollments'?{enrollments:result.enrollments}:{}),...(area==='learning'?{artifacts:result.artifacts}:{})});
-    if(area==='renewals')return json(response,{renewals:result.renewals,followUps:result.followUps});
+      ...(area==='enrollments'?{enrollments:result.enrollments,canCreateEnrollment:bundled}:{}),...(area==='learning'?{artifacts:result.artifacts}:{})});
     return json(response,{[area]:result[area]});
   }
   if(request.method==='GET'&&students&&action==='detail') {
-    return json(response,await data('GET','/students/'+id.parse(url.searchParams.get('id')),{auth}));
+    const detail=await data('GET','/students/'+id.parse(url.searchParams.get('id')),{auth});
+    const sourceRooms=new Map(rooms.filter(room=>room[projectField]).map(room=>[room[projectField],room.id]));
+    return json(response,{...detail,learning:detail.learning.map(row=>({...row,sourceRoom:sourceRooms.get(row.artifact.projectId)}))});
   }
   if(request.method!=='POST'||action!=='record-write')throw missing();
-  const body=z.strictObject({action:z.string(),key:id,record:z.string().max(64),input:z.record(z.string(),z.unknown())}).parse(await input());
+  const body=z.strictObject({action:z.string(),key:id,record:z.string().max(64),student:id.optional(),input:z.record(z.string(),z.unknown())}).parse(await input());
   let route;
+  let payload=body.input;
   if(area==='calendar'&&body.action==='calendar')route='/operations/calendar';
   if(area==='signals'&&['signals','refresh'].includes(body.action))route='/operations/signals'+(body.action==='refresh'?'/refresh':'');
   if(area==='history'&&['renewalImport','historyImport'].includes(body.action))route=body.action==='renewalImport'?'/operations/renewals/import':'/operations/history/import';
   if(area==='renewals'&&body.action==='renewals'){
     const enrollment=z.string().regex(/^[a-z\d][a-z\d_-]{0,63}$/i).parse(body.record);
+    if(body.student){
+      if(bundled)payload={...body.input,expectedStudentId:body.student};
+      else{
+        const detail=await data('GET','/students/'+body.student,{auth});
+        if(!detail.enrollments.some(row=>row.id===enrollment)){
+          throw new Problem(409,'课程段的学员关联已变化，请刷新后重试。','teaching_request');
+        }
+      }
+    }
     route='/operations/renewals/'+enrollment+'/follow-up';
   }
   if(area==='students'&&body.action==='students')route='/students'+(body.record?'/'+id.parse(body.record):'');
   if(area==='enrollments'&&['link','unlink'].includes(body.action))route='/students/'+id.parse(body.record)+'/enrollments'+(body.action==='unlink'?'/unlink':'');
+  if(area==='enrollments'&&body.action==='create'&&bundled)route='/students/'+id.parse(body.record)+'/enrollments/create';
   if(area==='learning'&&body.action==='learning')route='/students/'+id.parse(body.record)+'/learning-links';
   if(!route)throw missing();
-  const output=await data('POST',route,{auth,key:body.key,body:body.input});
+  const output=await data('POST',route,{auth,key:body.key,body:payload});
   onWrite?.(body.key);
   return json(response,output);
 }
@@ -57,6 +76,7 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
   const unavailable=()=>new Problem(503,bridgeKey?'内置教培组件暂时无法连接，请重新连接。':
     '无法连接英语教培工作台，请检查本机 HTTPS 服务、证书与端口。','teaching_unavailable');
   const sessions=new Map(), previews=new Map(), binding=new Set();
+  const projectField=trialPassword?'trialTeachingProject':'teachingProject';
 
   async function upstream(method,route,{auth,body,upload,key}={}) {
     if(!Number.isInteger(port)||port<1024||port>65535)throw unavailable();
@@ -150,9 +170,10 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
     }
     return auth;
   }
-  async function handleStudents(request,response,url,action,json) {
+  async function handleStudents(request,response,url,host,action,json) {
     const auth=await authorize(request,response,action,json);
-    if(auth)return business({request,response,url,area:'students',students:true,action,json,auth,data,input:()=>jsonBody(request)});
+    if(auth)return business({request,response,url,area:'students',students:true,action,json,auth,data,input:()=>jsonBody(request),
+      rooms:host.store.read().conversations,projectField});
   }
   async function handle(request,response,url,host,roomId,action,json) {
     const state=host.store.read();
@@ -166,7 +187,8 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
     if(['operations','students'].includes(target)){
       let payload,writeKey;
       await business({request,response,url,area:bot.id.slice('teaching-'.length),students:target==='students',action,
-        json:(_res,value)=>{payload=value;},onWrite:key=>{writeKey=key;},auth,data,input});
+        json:(_res,value)=>{payload=value;},onWrite:key=>{writeKey=key;},auth,data,input,
+        bundled:!!bridgeKey,rooms:state.conversations,projectField});
       if(writeKey&&host.group.id!=='personal'&&await groupFolder(host)){
         const pending=(host.store.read().groupMessages??[]).findLast(m=>m.room===room.id&&m.status==='input');
         const file=await saveGroupFile(host,bot.name+'.json',Buffer.from(JSON.stringify(payload,null,2)),{key:'record/'+writeKey});
@@ -180,7 +202,6 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
       return json(response,{title:context.title,connection:context.connection,messages:context.messages.filter(row=>owned.has(row.taskId))});
     }
     if(!['classroom','practice','bot'].includes(target))throw missing();
-    const projectField=trialPassword?'trialTeachingProject':'teachingProject';
     const attached=room[projectField];
     const loadProject=async key=>{
       const project=await data('GET','/projects/'+resourceId(key),{auth});
