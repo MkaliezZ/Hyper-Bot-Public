@@ -318,7 +318,12 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
             throw new Problem(404,'群组接口不存在。');
           }
           const teachingRoute=/^\/api\/rooms\/([^/]+)\/teaching\/([a-z-]+)$/.exec(url.pathname);
-          if(teachingRoute) {
+          const studentRoute=/^\/api\/teaching\/students\/(login|trial|logout|context|records|detail|record-write)$/.exec(url.pathname);
+          if(studentRoute) {
+            if(destination.group.id!=='personal')throw new Problem(404,'请在个人工作区打开学员档案。','teaching_scope');
+            if(!['GET','POST'].includes(request.method))throw new Problem(405,'不支持此操作。');
+            return await (await teaching.forHost(destination)).handleStudents(request,response,url,studentRoute[1],json);
+          } else if(teachingRoute) {
             if(!['GET','POST'].includes(request.method))throw new Problem(405,'不支持此操作。');
             await (await teaching.forHost(destination)).handle(request,response,url,destination,teachingRoute[1],teachingRoute[2],json);
           } else await apiMethod(request,response,url,destination,streams,configuring);

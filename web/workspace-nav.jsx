@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Archive, BookOpen, Check, ChevronsUpDown, Grid2X2, History, House, LayoutPanelLeft, Link2, MoreHorizontal,
+import { Archive, BookOpen, Check, ChevronsUpDown, ContactRound, Grid2X2, History, House, LayoutPanelLeft, Link2, MoreHorizontal,
   Users, Plus, Search, Settings2, X } from 'lucide-react';
 import { api, browseHref, currentWorkspace, workspaceHref } from './client.js';
 import { BotMark } from './components.jsx';
@@ -100,6 +100,9 @@ export function WorkspaceNav({workspace,groups,route,roomId,open,onClose,onColla
       <button className="icon-button desktop-control" aria-label="收起工作区导航" onClick={onCollapse}><LayoutPanelLeft size={17}/></button>
       <button className="icon-button mobile-control" aria-label="关闭工作区导航" onClick={onClose}><X size={19}/></button>
     </div>
+    {active.id==='personal'&&<nav className="rail-shortcuts" aria-label="工作区工具">
+      <a className="nav-line" href="#students" aria-current={route==='students'?'page':undefined}><ContactRound/>学员档案</a>
+    </nav>}
     <nav className="rail-body">
       {active.id!=='personal'&&route!=='group'&&<a className="nav-line" href="#group"><Users size={17}/>{active.name} · 群聊</a>}
       <div className="workspace-tools">

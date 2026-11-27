@@ -124,8 +124,8 @@ function LearningFields({artifacts,learning}) {
   </>;
 }
 
-export function TeachingRecords({bot,call,preview,onError}) {
-  const area=bot.id.slice('teaching-'.length), students=bot.target==='students';
+export function TeachingRecords({area,title,call,preview,onError}) {
+  const students=['students','enrollments','learning'].includes(area);
   const [list,setList]=useState(null),[selection,select]=useState(''),[read,setRead]=useState(null),[busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState(''),[reload,setReload]=useState(0),[csv,setCsv]=useState(''),[loadError,setLoadError]=useState('');
   const replay=useRef(null), gate=useRef(false);
@@ -184,7 +184,7 @@ export function TeachingRecords({bot,call,preview,onError}) {
     if(area==='learning')form.occurredOn||=null;
     void write(action,form);
   };
-  return <><h2>{bot.name}</h2>
+  return <><h2>{title}</h2>
   {loadError&&<RecordStatus error={loadError} retry={retry}/>}
   {receipt&&<p role="status">{receipt}</p>}
   {rows&&<label>{students?'学员':'记录'}<select aria-label={students?'学员':'记录'} value={selection} onChange={e=>select(e.target.value)}><option value="">{['students','calendar','signals'].includes(area)?'新建记录':'选择记录'}</option>{rows.map(row=><option key={row.enrollment?.id??row.id} value={row.enrollment?.id??row.id}>{row.name??row.title??row.enrollment?.label}</option>)}</select></label>}

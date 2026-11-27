@@ -2,8 +2,9 @@ import React,{useState,useEffect,useCallback,useRef} from 'react';
 import {PanelRight,X} from 'lucide-react';
 import {BotMark} from './components.jsx';
 import {downloadFile} from './client.js';
-import {teachingRequest,teacherSession} from './teaching-client.js';
+import {teachingRequest} from './teaching-client.js';
 import {TeachingRecords} from './teaching-records.jsx';
+import {TeachingAccount,useTeachingSession} from './teaching-session.jsx';
 
 const tracks={k12:'K12 英语',toefl:'托福',ielts:'雅思'};
 const statusNames={queued:'排队中',running:'生成中',succeeded:'已完成',failed:'生成失败',interrupted:'已中断'};
@@ -27,16 +28,7 @@ function PracticeChoices({card,exec,busy}) {
 }
 
 export function TeachingConversation({room,bot,navButton}) {
-  const [logged,setLogged]=useState(()=>!!teacherSession()),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-  const [reconnect,setReconnect]=useState(0);
-  useEffect(()=>{
-    if(!bot.trial||logged)return;
-    const controller=new AbortController();
-    teachingRequest(room.id,'trial',{body:{},signal:controller.signal}).then(result=>{
-      if(!controller.signal.aborted){teacherSession(result.token);setError('');setLogged(true);}
-    }).catch(problem=>{if(!controller.signal.aborted)setError(problem.message);});
-    return ()=>controller.abort();
-  },[bot.trial,logged,room.id,reconnect]);
+  const [busy,setBusy]=useState(false);
   const [previewOpen,setPreviewOpen]=useState(false),[project,setProject]=useState(null),[projects,setProjects]=useState([]);
   const [binding,setBinding]=useState(''),[track,setTrack]=useState('k12'),[goal,setGoal]=useState(''),[file,setFile]=useState(null),[pages,setPages]=useState('');
   const [chosen,setChosen]=useState(null),[card,setCard]=useState(null),[preview,setPreview]=useState(''),[edition,setEdition]=useState('student');
@@ -48,8 +40,11 @@ export function TeachingConversation({room,bot,navButton}) {
   const task=project?.tasks?.find(t=>t.task_id===chosen)??project?.tasks?.[0];
   const artifact=task?.artifact_ids?.[0];
   const active=project?.tasks?.some(t=>['running','queued'].includes(t.status));
-  function clear(){generation.current++;setLogged(false);setProject(null);setProjects([]);setPreview('');setCard(null);setFile(null);setGoal('');setChosen(null);setConnection(null);attempt.current=null;}
-  useEffect(()=>{window.addEventListener('teaching-expired',clear);return ()=>window.removeEventListener('teaching-expired',clear);},[]);
+  const clear=useCallback(()=>{
+    generation.current++;setProject(null);setProjects([]);setPreview('');setCard(null);setFile(null);setGoal('');setChosen(null);setConnection(null);attempt.current=null;
+  },[]);
+  const session=useTeachingSession(call,bot.trial,clear);
+  const {logged,error,setError}=session;
   useEffect(()=>{
     if(!logged)return;
     const ctrl=new AbortController(),options={signal:ctrl.signal};
@@ -86,14 +81,6 @@ export function TeachingConversation({room,bot,navButton}) {
       .then(value=>{if(!ctrl.signal.aborted)setPreview(value.url);}).catch(e=>{if(!ctrl.signal.aborted)setError(e.message);});
     return ()=>ctrl.abort();
   },[call,card,artifact,edition,logged]);
-  useEffect(()=>{
-    if(!logged)return;
-    const ctrl=new AbortController();
-    const recheck=()=>{if(!document.hidden)call('context',{signal:ctrl.signal}).catch(()=>{});};
-    const timer=setInterval(recheck,30000);
-    window.addEventListener('focus',recheck);
-    return ()=>{ctrl.abort();clearInterval(timer);window.removeEventListener('focus',recheck);};
-  },[logged,call]);
   async function run(fn){
     if(inFlight.current)return;
     inFlight.current=true;setBusy(true);setError('');
@@ -123,18 +110,14 @@ export function TeachingConversation({room,bot,navButton}) {
     <main className="chat" aria-label={bot.name+'会话'}><header className="chat-head">{navButton}<BotMark bot={bot} className="large"/>
     <div className="chat-ident"><h1>{bot.name}</h1><p>英语教培</p></div><button className="preview-toggle" type="button" aria-expanded={previewOpen} aria-controls="teaching-preview" onClick={()=>setPreviewOpen(!previewOpen)}><PanelRight size={18}/>{bot.target==='students'?previewTitle:'成果'}</button></header>
     <div className="thread-scroll"><div className="thread-body teach-fields">
-    {logged?<>{!bot.trial&&<div className="teach-session"><span>教师工作台</span><button disabled={busy} className="text-button" onClick={()=>run(async()=>{try{await call('logout',{body:{}});}finally{teacherSession(null);clear();}})}>退出教师账号</button></div>}
-    {recordMode?<TeachingRecords key={bot.id} bot={bot} call={call} preview={recordsPreview} onError={setError}/>:<>
+    <TeachingAccount session={session} disabled={busy}/>
+    {logged&&(recordMode?<TeachingRecords key={bot.id} area={bot.id.slice('teaching-'.length)} title={bot.name} call={call} preview={recordsPreview} onError={setError}/>:<>
     {isBot&&connection&&connection.connection!=='ready'&&<p role="status">当前教师工作台的专用 Bot {connection.connection==='offline'?'暂时离线':'尚未配置'}。</p>}
     {!project?<><Select label="教培任务记录" value={binding} onChange={e=>setBinding(e.target.value)} options={Object.fromEntries([['','创建任务记录'],...projects.map(p=>[p.id,p.title])])}/>
       {binding&&<button className="button" disabled={busy} onClick={()=>run(async()=>{await bind();setProject(await call('project'));})}>接续所选记录</button>}</>
       :<h2>{project.title}</h2>}
     {[...(project?.tasks??[])].reverse().map(t=><article className="message reply" key={t.task_id}><BotMark bot={bot}/><div><strong>{connection?.messages?.find(m=>m.taskId===t.task_id)?.prompt??t.title}</strong><p>{t.summary}</p>
-      <button className="text-button" onClick={()=>{setChosen(t.task_id);setPreviewOpen(true);}}>{statusNames[t.status]??t.status} · 查看</button></div></article>)}</>}
-    </>:bot.trial?<div role="status">{error?<button className="button" onClick={()=>setReconnect(n=>n+1)}>重新连接</button>:'正在连接教培功能…'}</div>:<form className="teach-fields" onSubmit={event=>{event.preventDefault();const form=event.currentTarget,pw=new FormData(form).get('password');
-      void run(async()=>{const result=await call('login',{body:{password:pw}});form.reset();teacherSession(result.token);setLogged(true);});}}>
-      <h2>登录教师账号</h2><label>原工作台教师口令<input type="password" name="password" autoComplete="current-password" required maxLength={100}/></label>
-      <button className="button primary" disabled={busy}>登录英语教培工作台</button></form>}
+      <button className="text-button" onClick={()=>{setChosen(t.task_id);setPreviewOpen(true);}}>{statusNames[t.status]??t.status} · 查看</button></div></article>)}</>)}
     {error&&<p role="alert" className="form-error">{error}</p>}
     </div></div>
     {logged&&!recordMode&&<footer className="compose-wrap"><form className="composer teach-fields" onSubmit={event=>{event.preventDefault();

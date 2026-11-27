@@ -111,13 +111,31 @@ test('teaching projects produce interactive lessons and reviewed practice', {tim
     }
     throw new Error('Timed out waiting for '+action);
   }
+  const directory='/teaching/students';
+  const before=await request('/workspace');
+  await request(directory+'/records',undefined,401);
+  const {token:directoryToken}=await request(directory+(nativeRoot?'/login':'/trial'),nativeRoot?{password}:{});
+  token=directoryToken;
+  let student;
+  if(!nativeRoot){
+    ({student}=await request(directory+'/record-write',{action:'students',record:'',key:randomUUID(),
+      input:{name:'合成学员',code:'synthetic',className:'合成班级',track:'k12',status:'active'}}));
+    assert.equal((await request(directory+'/detail?id='+student.id)).student.id,student.id);
+    assert.equal((await request(directory+'/records?q=synthetic')).students[0].id,student.id);
+    const after=await request('/workspace');
+    assert.deepEqual(after.conversations,before.conversations);
+    assert.deepEqual(after.sidebarBots,before.sidebarBots);
+    const group=await request('/v1/workspaces',{name:'档案访问范围测试'},201);
+    await request('/v1/workspaces/'+group.id+directory+'/records',undefined,404);
+  }
   const rooms={};
   for(const kind of ['classroom','practice']){
     const {id}=await request('/bot-instances',{botId:'teaching-'+kind});
     rooms[kind]='/rooms/'+id+'/teaching';
   }
+  token='';
   await request(rooms.classroom+'/project',undefined,401);
-  token=(await request(rooms.classroom+(nativeRoot?'/login':'/trial'),nativeRoot?{password}:{})).token;
+  token=directoryToken;
   const material='Our reading club meets in the library on Fridays. Bring your notebook and register on Thursday. Emma will compare two stories and share one detail with a partner. This week the meeting is in Room 204.';
   const ids={};
   for(const [kind,room] of Object.entries(rooms)){
@@ -162,7 +180,6 @@ test('teaching projects produce interactive lessons and reviewed practice', {tim
     assert.equal((await write('history','historyImport',{csv:historyCSV})).imported,1);
     await write('renewals','renewals',{date:'2024-07-10',outcome:'contacted',note:'合成跟进'},'sample-term');
     assert.equal((await request(rooms.renewals+'/records')).followUps['sample-term'][0].note,'合成跟进');
-    const {student}=await write('students','students',{name:'合成学员',code:'synthetic',className:'合成班级',track:'k12',status:'active'});
     assert.equal((await request(rooms.students+'/records?q=synthetic')).students[0].id,student.id);
     await write('enrollments','link',{enrollmentId:'sample-term'},student.id);
     let detail=await request(rooms.enrollments+'/detail?id='+student.id);
@@ -172,6 +189,7 @@ test('teaching projects produce interactive lessons and reviewed practice', {tim
     assert.deepEqual(detail.enrollments,[]);
     await write('learning','learning',{artifactId:lesson.artifact_id,status:'used',occurredOn:null,note:'合成课件记录'},student.id);
     assert.equal((await request(rooms.learning+'/detail?id='+student.id)).learning[0].artifactId,lesson.artifact_id);
+    assert.equal((await request(directory+'/detail?id='+student.id)).learning[0].artifactId,lesson.artifact_id);
 
     const assistant=(await request('/bot-instances',{botId:'teaching-bot'})).id;
     async function ask(text){

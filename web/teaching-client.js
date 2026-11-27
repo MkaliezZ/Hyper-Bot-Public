@@ -6,12 +6,12 @@ export function teacherSession(value) {
   else if(value!==undefined)sessionStorage.setItem(sessionKey,value);
   return sessionStorage.getItem(sessionKey);
 }
-export async function teachingRequest(room,action,{body,signal,file,blob}={}) {
+async function requestTeaching(base,action,{body,signal,file,blob}={}) {
   const headers={'X-Hyper-Teaching':teacherSession()??'','X-Hyper-Bot':'1'};
   let payload;
   if(file){payload=new FormData();payload.append('file',file);}
   else if(body!==undefined){headers['Content-Type']='application/json';payload=JSON.stringify(body);}
-  const response=await fetch(apiPath('/rooms/'+room+'/teaching/'+action),{
+  const response=await fetch(apiPath(base+action),{
     method:payload===undefined?'GET':'POST',headers,body:payload,signal,cache:'no-store'
   });
   if(!response.ok) {
@@ -22,4 +22,12 @@ export async function teachingRequest(room,action,{body,signal,file,blob}={}) {
     throw new Error(result.error??'暂时无法连接英语教培工作台。');
   }
   return blob?response.blob():response.json();
+}
+
+export function teachingRequest(room,action,options) {
+  return requestTeaching('/rooms/'+room+'/teaching/',action,options);
+}
+
+export function studentRecordsRequest(action,options) {
+  return requestTeaching('/teaching/students/',action,options);
 }

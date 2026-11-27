@@ -14,6 +14,7 @@ import { TeachingConversation } from './teaching-conversation.jsx';
 import { SpecialistConversation } from './specialist-conversation.jsx';
 import { TeachingAssistant } from './teaching-assistant.jsx';
 import { EntityArchive } from './entity-archive.jsx';
+import { StudentDirectory } from './student-directory.jsx';
 import './theme.css';
 
 import { ActiveRunLink } from './components.jsx';
@@ -148,7 +149,7 @@ function App() {
   useLayoutEffect(()=>drafts.observe(room,{visible:true}),[drafts,room]);
   useEffect(()=>drafts.setOnline(online),[drafts,online]);
   useEffect(()=>{
-    if (['history','library','recovery','manage','memory','entity'].includes(page)) document.querySelector('.route-page')?.scrollTo({top:0});
+    if (['history','library','recovery','manage','memory','entity','students'].includes(page)) document.querySelector('.route-page')?.scrollTo({top:0});
   },[page,identifier]);
   useEffect(()=>{
     if(!toast)return;
@@ -260,6 +261,7 @@ function App() {
                 :page==='history'?<History workspace={workspace} filters={filters} onChange={changeFilters}/>
                 :page==='recovery'?<Recovery workspace={workspace} selected={identifier} online={online} refresh={refresh} notify={setToast}/>
                 :page==='memory'?<WorkspaceMemory workspace={workspace} online={online} notify={setToast}/>
+                :page==='students'&&currentWorkspace==='personal'?<StudentDirectory trial={workspace.bots.find(bot=>bot.id==='teaching-students')?.trial!==false}/>
                 :page==='entity'&&workspace.entityArchive?<EntityArchive version={workspace.version} selected={identifier}
                   online={online} notify={setToast} refresh={refresh}/>
                 :<Directory workspace={workspace} selected={identifier} home={page==='home'} refresh={refresh} online={online}/>}

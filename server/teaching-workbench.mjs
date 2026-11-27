@@ -18,9 +18,7 @@ const resourceId=value=>id.parse(value);
 const loginInput=z.strictObject({password:z.string().min(1).max(100)});
 const tracks=z.enum(['k12','toefl','ielts']);
 
-async function business({request,response,url,bot,action,json,auth,data,input,onWrite}) {
-  const area=bot.id.slice('teaching-'.length);
-  const students=bot.target==='students';
+async function business({request,response,url,area,students,action,json,auth,data,input,onWrite}) {
   if(request.method==='GET'&&action==='records') {
     const route=students?'/students?q='+encodeURIComponent((url.searchParams.get('q')??'').slice(0,80)):'/operations';
     const result=await data('GET',route,{auth});
@@ -47,7 +45,7 @@ async function business({request,response,url,bot,action,json,auth,data,input,on
   if(area==='learning'&&body.action==='learning')route='/students/'+id.parse(body.record)+'/learning-links';
   if(!route)throw missing();
   const output=await data('POST',route,{auth,key:body.key,body:body.input});
-  onWrite(body.key);
+  onWrite?.(body.key);
   return json(response,output);
 }
 
@@ -118,16 +116,11 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
       'X-Frame-Options':'SAMEORIGIN','Content-Security-Policy':res.headers['content-security-policy']});
     await pipeline(res,response);
   }
-  async function handle(request,response,url,host,roomId,action,json) {
-    const state=host.store.read();
-    const room=conversationOf(state,resourceId(roomId));
-    const bot=botOf(state,room.botId,room.revision);
-    if(bot?.kind!=='teaching')throw missing();
-    const target=bot.target, method=request.method, post=method==='POST';
-    const input=()=>jsonBody(request);
+  async function authorize(request,response,action,json) {
+    const post=request.method==='POST';
     if((action==='login'&&!trialPassword||action==='trial'&&trialPassword)&&post) {
       prune();
-      const body=trialPassword?{password:await trialPassword()}:loginInput.parse(await input());
+      const body=trialPassword?{password:await trialPassword()}:loginInput.parse(await jsonBody(request));
       const res=await upstream('POST','/session',{body:{account:'teacher',password:body.password}});
       const cookie=res.headers['set-cookie']?.[0]?.match(/^m0_session=[a-f0-9]{64}(?=;)/)?.[0];
       const chunks=[];for await(const chunk of res)chunks.push(chunk);
@@ -137,7 +130,8 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
       const previewCookie='hb-teaching-'+randomUUID()+'='+randomUUID();
       sessions.set(token,{cookie,account,csrf,previewCookie,expires:Date.now()+duration});
       response.setHeader('Set-Cookie',previewCookie+'; HttpOnly; SameSite=Strict; Path=/teaching-preview/; Max-Age=14400');
-      return json(response,{token,account});
+      json(response,{token,account});
+      return null;
     }
     const auth=await session(request);
     if(action==='logout'&&post) {
@@ -146,15 +140,33 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
         sessions.delete(request.headers['x-hyper-teaching']);
         response.setHeader('Set-Cookie',auth.previewCookie.split('=')[0]+'=; HttpOnly; SameSite=Strict; Path=/teaching-preview/; Max-Age=0');
       }
-      return json(response,{});
+      json(response,{});
+      return null;
     }
     if(action==='context'&&!post) {
       const context=await data('GET','/context',{auth});
-      return json(response,{account:context.account});
+      json(response,{account:context.account});
+      return null;
     }
+    return auth;
+  }
+  async function handleStudents(request,response,url,action,json) {
+    const auth=await authorize(request,response,action,json);
+    if(auth)return business({request,response,url,area:'students',students:true,action,json,auth,data,input:()=>jsonBody(request)});
+  }
+  async function handle(request,response,url,host,roomId,action,json) {
+    const state=host.store.read();
+    const room=conversationOf(state,resourceId(roomId));
+    const bot=botOf(state,room.botId,room.revision);
+    if(bot?.kind!=='teaching')throw missing();
+    const {target}=bot, post=request.method==='POST';
+    const input=()=>jsonBody(request);
+    const auth=await authorize(request,response,action,json);
+    if(!auth)return;
     if(['operations','students'].includes(target)){
       let payload,writeKey;
-      await business({request,response,url,bot,action,json:(_res,value)=>{payload=value;},onWrite:key=>{writeKey=key;},auth,data,input});
+      await business({request,response,url,area:bot.id.slice('teaching-'.length),students:target==='students',action,
+        json:(_res,value)=>{payload=value;},onWrite:key=>{writeKey=key;},auth,data,input});
       if(writeKey&&host.group.id!=='personal'&&await groupFolder(host)){
         const pending=(host.store.read().groupMessages??[]).findLast(m=>m.room===room.id&&m.status==='input');
         const file=await saveGroupFile(host,bot.name+'.json',Buffer.from(JSON.stringify(payload,null,2)),{key:'record/'+writeKey});
@@ -226,5 +238,5 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
     }
     throw missing();
   }
-  return {handle,render,hasPreview:ticket=>previews.has(ticket)};
+  return {handle,handleStudents,render,hasPreview:ticket=>previews.has(ticket)};
 }

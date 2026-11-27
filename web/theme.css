@@ -79,6 +79,7 @@ button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation
 .brand { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; font-weight: 735; font-size: 16px; letter-spacing: -.02em; }
 .brand img { width: 24px; height: 24px; }
 .rail-body { flex: 1; min-height: 0; overflow: auto; padding: 6px 13px 13px; }
+.rail-shortcuts { flex: none; padding: 0 13px; }
 .nav-label { font-size: 12px; color: var(--muted); padding: 0 10px 7px; }
 .page-list-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .nav-line { min-height: 40px; padding: 7px 10px; color: var(--body); display: flex; align-items: center; gap: 10px; border-radius: 7px; }
@@ -165,7 +166,7 @@ button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation
   background: var(--warning-bg); color: var(--waiting); border: 1px solid var(--warning-line); border-radius: 5px; font-size: 12px; }
 .rail :is(.nav-line,.nav-label,.workspace-switch > svg,.workspace-switch small,.workspace-bot small) { color: var(--rail-ink); }
 .rail :is(.rail-head,.rail-body,.rail-foot) .icon-button { color: var(--rail-ink); }
-.rail :is(.rail-head,.rail-body,.rail-foot) :focus-visible { outline-color: var(--rail-ink); }
+.rail :is(.rail-head,.rail-shortcuts,.rail-body,.rail-foot) :focus-visible { outline-color: var(--rail-ink); }
 .rail .workspace-switch, .rail .workspace-more .workspace-menu, .rail .recovery-count {
   color: var(--rail-ink); background: var(--rail-panel); border-color: var(--rail-rule); }
 .rail .workspace-switch .workspace-mark { color: var(--rail-ink); background: var(--rail-highlight); }
@@ -968,7 +969,12 @@ label.checkbox { display: flex; align-items: center; }
 .student-directory button small { grid-column: 1 / -1; }
 .student-counts > div { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .student-counts dd { flex-shrink: 0; max-width: 60%; }
+.student-directory-page { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,.85fr); gap: 16px; align-items: start; }
+.student-directory-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.student-directory-card h2 { margin: 0; font-size: 17px; }
+.student-directory-card .student-counts { margin: 0; }
 @media (max-width:760px) {
+  .student-directory-page { grid-template-columns: 1fr; }
   .teaching-chat .preview-head .mobile-control { display: inline-flex; }
   .specialist-chat.with-preview .preview-toggle { display: inline-flex; }
   .specialist-chat:not(.specialist-preview-open) .specialist-preview { display: none; }
