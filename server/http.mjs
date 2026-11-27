@@ -1,4 +1,7 @@
 import http from 'node:http';
+import {groupChat} from './group-chat.mjs';
+import {downloadGroupFile,saveGroupFile} from './group-files.mjs';
+import {chooseGroupFolder} from './group-picker.mjs';
 import { teachingServices } from './teaching-trial.mjs';
 import { mkdir, readFile } from 'node:fs/promises';
 import { workspaceLock } from './workspace-lock.mjs';
@@ -72,7 +75,17 @@ function apiMethod(request,response,url,host,streams,configuring) {
     requireRuntime();
     app.expire();
     if (get && first==='workspace' && !key) return json(response,{...app.index(),workspace:host.group});
+    if(get&&first==='conversation-search'&&!key) return json(response,app.searchConversations((url.searchParams.get('q')??'').slice(0,100)));
     if (post && first==='bot-instances' && !key) return json(response,app.installBot(await input()));
+    if (first==='entity') {
+      if (get && !key) return json(response,app.entityArchive());
+      if (get && key==='sources' && !part) return json(response,app.entitySources());
+      if (get && key==='candidates' && part && !extra) return json(response,app.entityCandidate(takeId(part)));
+      if (post && key==='records' && !part) return json(response,app.saveEntity(await input()),201);
+      if (post && key==='records' && part && extra==='revoke' && !leaf) {
+        return json(response,app.revokeEntity(takeId(part),await input()));
+      }
+    }
     if (first==='memories') {
       if (get && !key) return json(response,app.memories());
       if (post && !key) return json(response,app.saveMemory(await input()),201);
@@ -231,6 +244,7 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
   const teaching=teachingServices();
   let store, app, groups, vite, expiry, server, setting=false, mutations=0;
   const configuring=()=>setting||app.runtimeChanging;
+  const chat=groupChat(()=> 'http://127.0.0.1:'+server.address().port,windowKey);
   try {
     store=new Store(path.join(config.data,'hyper-bot.sqlite'));
     await store.init();
@@ -259,11 +273,11 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
             throw new Problem(403,'此请求需要来自当前 Hyper Bot 桌面窗口。','window_access');
           }
           if (request.method==='POST') {
-            const upload=/^\/api\/(?:v1\/workspaces\/[^/]+\/)?rooms\/[^/]+\/teaching\/upload$/.test(url.pathname);
-            const specialistUpload=/^\/api\/(?:v1\/workspaces\/[^/]+\/)?rooms\/[^/]+\/specialist-upload$/.test(url.pathname);
-            const mediaType=upload?/^multipart\/form-data;\s*boundary=/i:
-              specialistUpload?/^application\/octet-stream\b/:/^application\/json\b/;
-            if(!mediaType.test(request.headers['content-type']??'')||request.headers['x-hyper-bot']!=='1'){
+            const upload=/^\/api\/(?:v1\/workspaces\/[^/]+\/)?rooms\/[^/]+\/specialist-upload$/.test(url.pathname);
+            const teachingUpload=/^\/api\/(?:v1\/workspaces\/[^/]+\/)?rooms\/[^/]+\/teaching\/upload$/.test(url.pathname);
+            const groupUpload=/^\/api\/v1\/workspaces\/[^/]+\/group-files$/.test(url.pathname);
+            const mediaType=teachingUpload?/^multipart\/form-data;\s*boundary=/i:(upload||groupUpload)?/^application\/octet-stream\b/:/^application\/json\b/;
+            if(!mediaType.test(request.headers['content-type']??'')||request.headers['x-hyper-bot']!=='1') {
               throw new Problem(403,'操作请求无效。');
             }
           }
@@ -281,11 +295,29 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
           const scoped=/^\/api\/v1\/workspaces\/([^/]+)(\/.*)$/.exec(url.pathname);
           const destination=scoped?await groups.get(scoped[1]):host;
           if (scoped) url.pathname='/api'+scoped[2];
+          if(url.pathname==='/api/choose-group-folder'&&request.method==='POST'){
+            await jsonBody(request);
+            return json(response,{folder:await chooseGroupFolder()});
+          }
+          if(url.pathname.startsWith('/api/group-')){
+            if(!scoped||destination.group.id==='personal')throw new Problem(404,'请打开群组。');
+            if(url.pathname==='/api/group-chat'){
+              if(request.method==='GET')return json(response,await chat.view(destination));
+              if(request.method==='POST')return json(response,await chat.send(destination,await jsonBody(request)),201);
+            }
+            if(url.pathname==='/api/group-folder'&&request.method==='POST'){
+              const value=await groups.attach(destination,(await jsonBody(request)).folder);return json(response,{folder:value.folder});
+            }
+            if(url.pathname==='/api/group-files'&&request.method==='POST')return json(response,await saveGroupFile(destination,url.searchParams.get('name'),request),201);
+            const file=/^\/api\/group-files\/([^/]+)(\/preview)?$/.exec(url.pathname);
+            if(file&&request.method==='GET')return await downloadGroupFile(destination,file[1],response,Boolean(file[2]));
+            throw new Problem(404,'群组接口不存在。');
+          }
           const teachingRoute=/^\/api\/rooms\/([^/]+)\/teaching\/([a-z-]+)$/.exec(url.pathname);
-          if(teachingRoute){
+          if(teachingRoute) {
             if(!['GET','POST'].includes(request.method))throw new Problem(405,'不支持此操作。');
             await (await teaching.forHost(destination)).handle(request,response,url,destination,teachingRoute[1],teachingRoute[2],json);
-          }else await apiMethod(request,response,url,destination,streams,configuring);
+          } else await apiMethod(request,response,url,destination,streams,configuring);
         } else {
           const preview=/^\/teaching-preview\/([0-9a-f-]{36})$/.exec(url.pathname);
           if(preview)return await teaching.render(request,response,preview[1]);
@@ -335,6 +367,7 @@ export async function launch({port=0,dev=false,options={},workbenchFactory,windo
       server.closeIdleConnections();
       app.registry.controller?.abort(new Error('Host closing'));
       try {
+        await chat.close();
         await drained;
         await teaching.close();
         try {await groups.close();} finally {await app.shutdown();}

@@ -5,7 +5,7 @@ import { materialVisibleIn, visibleArtifact } from './materials.mjs';
 import { scriptTimingNotes } from './workbench-workflow.mjs';
 import { evidenceReviewNotes } from './script-evidence.mjs';
 
-function quoteLocation(text,quote) {
+export function quoteLocation(text,quote) {
   if (!text || !quote || !quote.isWellFormed()) return null;
   const first=text.indexOf(quote);
   if (first<0) return null;

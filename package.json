@@ -1,7 +1,7 @@
 {
   "name": "hyper-bot",
   "productName": "Hyper Bot",
-  "version": "0.1.0-dev.60",
+  "version": "0.1.0-dev.61",
   "private": true,
   "type": "module",
   "engines": {
@@ -17,6 +17,7 @@
     "verify:deployment": "node scripts/verify-deployment.mjs",
     "test:integration": "node scripts/integration.mjs",
     "test:teaching": "node --test test/teaching-integration.test.mjs",
+    "test:group": "node --test test/group-chat.test.mjs",
     "workspace": "node scripts/workspace.mjs",
     "setup:teaching": "node scripts/setup-teaching.mjs"
   },

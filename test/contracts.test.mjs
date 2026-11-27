@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { resultOf, definitionPrompt } from '../server/contracts.mjs';
+import { resultOf, definitionPrompt, sha } from '../server/contracts.mjs';
 import { payloadHash } from '../server/workbench.mjs';
 import { reviewScriptEvidence } from '../server/script-evidence.mjs';
 import { receiptReport } from '../server/run-receipts.mjs';
@@ -16,6 +16,68 @@ import { newWindowKey, windowHeader } from '../server/window-session.mjs';
 import { retryLocalCheck } from '../server/config.mjs';
 import { backupWorkspace, restoreWorkspace } from '../server/workspace-archive.mjs';
 import { memoryContext, memoryRefsFor } from '../server/workspace-memory.mjs';
+import { entityContext, entityOwner, grantEntityRead } from '../server/entity-archive.mjs';
+
+test('Entity archives confirmed versions with local evidence and rechecks revocation',async()=>{
+  const data=await mkdtemp(path.join(tmpdir(),'hyper-bot-entity-'));
+  let host;
+  try {
+    host=await launch({options:{data,providerKey:''}});
+    async function api(route,body,status=200) {
+      const response=await fetch(host.origin+'/api'+route,{headers:{'X-Hyper-Bot':'1','Content-Type':'application/json'},
+        ...(body===undefined?{}:{method:'POST',body:JSON.stringify(body)})});
+      const result=await response.json();
+      assert.equal(response.status,status,JSON.stringify(result));
+      return result;
+    }
+    const {id:room}=await api('/rooms',{botId:'media',revision:1,title:'测试口播'},201);
+    const content='原文证据。';
+    const {id:material}=await api('/rooms/'+room+'/materials',{name:'采访.txt',content,authorized:true},201);
+    const artifact=randomUUID(),run=randomUUID(),approval=randomUUID(),project='test-project';
+    const digest=sha('confirmed-version');
+    host.store.change((state,emit)=>{
+      const at=new Date().toISOString();
+      const actor=entityOwner(state,at).entity_id;
+      const job={id:run,conversation:room,entityActor:actor,botId:'media',botRevision:1,kind:'script',
+        state:'succeeded',artifact,materialIds:[material],approval:{id:approval,status:'accepted',digest}};
+      state.runs.push(job);
+      state.artifacts.push({id:artifact,run,conversation:room,kind:'script',project,version:2,materialIds:[material],
+        receipt:{id:'workbench-version',project},result:{title:'档案口播',segments:[{evidence:[{material,quote:content}]}]}});
+      emit(job,'approval',{role:'user',decision:'accepted',target:project,digest});
+    });
+    const candidate=await api('/entity/candidates/'+artifact);
+    assert.equal(candidate.sources[0].line,1);
+    assert.equal(candidate.run,run);
+    assert.equal((await api('/entity/candidates/'+randomUUID(),undefined,404)).code,'entity_source');
+    const {ref}=await api('/entity/records',{artifact,form:'confirmed',confirmed:true},201);
+    assert.deepEqual((await api('/entity/records',{artifact,form:'confirmed',confirmed:true},201)).ref,ref);
+    const {claim_id,version}=ref;
+    const selection={claim_id,version};
+    const target=(await api('/rooms',{botId:'media',revision:1,title:'新任务'},201)).id;
+    await api('/rooms/'+target+'/draft',{text:'重用经历',attachments:[],entityRef:selection});
+    assert.deepEqual((await api('/rooms/'+target)).draft.entityRef,selection);
+    const group=await api('/v1/workspaces',{name:'独立团队'},201);
+    assert.equal((await api('/v1/workspaces/'+group.id+'/entity',undefined,403)).code,'entity_scope');
+    const state=host.store.read(),destination=host.config.upstream;
+    const selected=grantEntityRead(state,state.conversations.find(item=>item.id===target),selection,new Date().toISOString(),destination);
+    const consumer={...selected,conversation:target,entityActor:state.entityOwner.entity_id};
+    const projected=entityContext(state,consumer,destination);
+    assert.equal(projected.summary,'确认了《档案口播》口播分镜 v2。');
+    assert.ok(!JSON.stringify(projected).includes(content));
+    assert.throws(()=>entityContext(state,consumer,'http://another-provider'),{code:'entity_unavailable'});
+    assert.equal(state.entityRecords[0].claim.evidence.find(item=>item.asset_ref.asset_id===material).relation,'context');
+    state.materials.find(row=>row.id===material).expiresAt=new Date(0).toISOString();
+    assert.throws(()=>entityContext(state,consumer,destination),{code:'entity_unavailable'});
+    await api('/entity/records/'+claim_id+'/revoke',{version,confirmed:true});
+    const inactive=(await api('/entity')).records[0];
+    assert.equal(inactive.revoked,true);
+    assert.equal(inactive.source,undefined);
+    assert.equal(inactive.statement,undefined);
+  } finally {
+    await host?.close();
+    await rm(data,{recursive:true,force:true});
+  }
+});
 
 test('desktop API requires the current Host credential before reads, events and writes',async()=>{
   const data=await mkdtemp(path.join(tmpdir(),'hyper-bot-window-contract-'));

@@ -13,6 +13,8 @@ import { generateTeachingReply } from './teaching-assistant.mjs';
 import { receiptReport, storeAccounting, upstreamMode } from './run-receipts.mjs';
 import { materializeExample } from './bot-sample.mjs';
 import { changeMemory, listMemories, memoryChanged, memoryContext, memoryRefsFor } from './workspace-memory.mjs';
+import { archiveCandidate, archiveSources, archiveView, draftEntityView, entityContext, entityOwner, entityRef, entityUnavailable,
+  grantEntityRead, revokeEntityRecord, sameEntityRef, saveEntityRecord, validateEntitySelection } from './entity-archive.mjs';
 import { DRIVERS, execute, RuntimeStop } from './engines.mjs';
 import { libraryMaterials, libraryView, versionScope } from './history.mjs';
 import { retiredHistorySummary } from './export.mjs';
@@ -36,7 +38,7 @@ function installedBots(state) {
 }
 const fileInput = textFile.extend({authorized:z.literal(true)});
 const draftInput = z.strictObject({text:z.string().max(8000),attachments:z.array(id).max(6),base:id.nullable().default(null),
-  originalBase:z.string().regex(scriptId).optional(),proposalBase:id.optional(),retryOf:id.optional()});
+  originalBase:z.string().regex(scriptId).optional(),proposalBase:id.optional(),retryOf:id.optional(),entityRef:entityRef.optional()});
 const projectMaterialInput=z.strictObject({source:z.string().regex(sourceId),digest:z.string().regex(/^[a-f0-9]{64}$/),authorized:z.literal(true)});
 const fingerprint=z.string().regex(/^[a-f0-9]{64}$/);
 const draftGuard={draftToken:fingerprint.optional()};
@@ -246,6 +248,7 @@ export class HyperBot {
           ...(builtIn&&bot.revision===1&&bot.qualification==='pinned-dev'?builtInCopy[bot.id]:{})};
       }),
         ...specialistDirectory(this.config).filter(bot=>!state.bots.some(item=>item.id===bot.id))],
+      groupChats:true,entityArchive:this.config.allowEntity!==false,
       installedBots:installedBots(state),
       conversations: conversations.map(({draft,draftRetry,draftProposal,draftStamp,handoffRequest,teachingProject,trialTeachingProject,teachingTaskIds,...room})=>room)
         .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)),
@@ -309,9 +312,39 @@ export class HyperBot {
     void this.recheckDependencies().catch(()=>{});
   }
 
-  room(id) { return roomView(this.store.read(),id); }
+  room(id) {
+    const state=this.store.read();
+    const room=roomView(state,id);
+    return room.draft.entityRef&&this.config.allowEntity!==false
+      ? {...room,selectedEntity:draftEntityView(state,room.draft.entityRef)} : room;
+  }
 
   memories() {return listMemories(this.store.read());}
+
+  assertEntityScope() {
+    if (this.config.allowEntity===false) throw new Problem(403,'档案目前仅在个人工作区可用。','entity_scope');
+  }
+
+  entityArchive() {this.assertEntityScope();return archiveView(this.store.read());}
+  entitySources() {this.assertEntityScope();return archiveSources(this.store.read());}
+  entityCandidate(key) {this.assertEntityScope();return archiveCandidate(this.store,this.store.read(),key);}
+
+  saveEntity(raw) {
+    this.assertEntityScope();
+    return this.store.change(state=>saveEntityRecord(this.store,state,raw,at()));
+  }
+
+  revokeEntity(key,raw) {
+    this.assertEntityScope();
+    const record=this.store.change(state=>{
+      if (state.runs.some(run=>run.state==='saving'&&run.entityRef?.claim_id===key)) {
+        throw new Problem(409,'引用这条档案的分镜正在写入，请等写入结束。','entity_busy');
+      }
+      return revokeEntityRecord(state,key,raw,at());
+    });
+    this.expire();
+    return record;
+  }
 
   setMemoryPreference(roomId,raw) {
     const {enabled}=memoryPreference.parse(raw);
@@ -345,6 +378,23 @@ export class HyperBot {
   }
 
   receipts(query) { return receiptReport(this.store.read(),query); }
+
+  searchConversations(query) {
+    const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('zh-CN');
+    const terms=normalize(query).trim().split(/\s+/).filter(Boolean);
+    const state=this.store.read();
+    return state.conversations.filter(room=>{
+      const bot=state.bots.find(item=>item.id===room.botId&&item.revision===room.revision)??specialistBot(room.botId,room.revision);
+      const material=id=>state.materials.find(file=>file.id===id&&materialVisibleIn(file,room.id));
+      const runs=state.runs.filter(run=>run.conversation===room.id&&!run.endedAt);
+      const results=state.artifacts.filter(record=>record.conversation===room.id&&visibleArtifact(record,material));
+      const text=normalize([room.title,room.projectTitle,bot?.name??room.botId,
+        ...runs.flatMap(run=>[run.prompt,JSON.stringify(run.specialistResult?.details)]),
+        ...results.map(record=>JSON.stringify(record.result)),
+        ...state.materials.filter(file=>activeMaterial(file)&&materialVisibleIn(file,room.id)).map(file=>file.name)].join('\n'));
+      return terms.every(term=>text.includes(term));
+    }).map(room=>room.id);
+  }
   recordAccounting(id,data) { return storeAccounting(this.store,id,data); }
 
   library(key) {
@@ -571,6 +621,10 @@ export class HyperBot {
       const room=conversationOf(state,roomId);
       checkDraftToken(room,expected);
       authorizedMaterials(state,room.id,draft.attachments);
+      if (draft.entityRef) {
+        this.assertEntityScope();
+        validateEntitySelection(state,room,draft.entityRef);
+      }
       validateDraftScope(state,room,draft);
       if (draft.base && artifactOf(state,draft.base).endedAt) {
         throw new Problem(410,'此稿件的材料授权已结束。','material_ended');
@@ -615,6 +669,9 @@ export class HyperBot {
         throw new Problem(409,'会话的记忆设置已变化，请刷新后重新发送。','memory_preference');
       }
       const memoryRefs=input.useWorkspaceMemory?memoryRefsFor(state,bot.id):[];
+      if (input.entityRef) this.assertEntityScope();
+      const createdAt=at();
+      const entityAccess=grantEntityRead(state,room,input.entityRef,createdAt,this.config.upstream);
       approvedMethodsForRun(state,bot);
       const files=authorizedMaterials(state,room.id,input.attachments);
       const scope=versionScope(room,room.project);
@@ -635,10 +692,16 @@ export class HyperBot {
       const base=input.base??proposal?.base??null;
       const originalBase=input.originalBase??(proposal?.unwrittenDraft?undefined:proposal?.originalBase);
       approvedBase(state,room,base,input.attachments);
+      const baseRun=base&&runOf(state,artifactOf(state,base).run);
+      if ([baseRun?.entityRef,proposal?.entityRef].some(ref=>ref&&!sameEntityRef(ref,input.entityRef))) {
+        throw new Problem(409,'这份续改稿使用了档案，请重新选择原引用，或移除续改来源后发送。','entity_follow_up');
+      }
       const run={id:randomUUID(),conversation:roomId,botId:bot.id,botRevision:bot.revision,driver:bot.driver,driverRevision:bot.driverRevision,
         kind:bot.kind,signature,clientRequestId:input.clientRequestId,base,prompt:input.text,
-        materialIds:input.attachments,createdAt:at(),updatedAt:at(),state:'queued',usage:unusedMeter(),recovery:null,
+        materialIds:input.attachments,createdAt,updatedAt:createdAt,state:'queued',usage:unusedMeter(),recovery:null,
         model:this.config.model,modelMode:upstreamMode(this.config),...(bot.workflow?{workflow:bot.workflow}:{}),
+        ...(this.config.allowEntity!==false?{entityActor:entityOwner(state,createdAt).entity_id}:{}),
+        ...entityAccess,
         ...(memoryRefs.length?{memoryRefs}:{}),
         ...(input.retryOf?{retryOf:input.retryOf}:{}),
         ...(originalBase?{originalBase}:{}),...(proposal?{proposalBase:proposal.id}:{})};
@@ -846,9 +909,11 @@ export class HyperBot {
         });
       }
       signal.throwIfAborted();
-      const memory=memoryContext(this.store.read(),run);
+      const current=this.store.read();
+      const memory=memoryContext(current,run);
+      const entity=entityContext(current,run,this.config.upstream);
       const prompt=definitionPrompt({kind:bot.kind,skills:methods.skills,workflow,request:run.prompt,memory,
-        materials,base:proposal?.plan.result ?? base?.result ?? prepared?.base,conversationTitle:room.title});
+        entity,materials,base:proposal?.plan.result ?? base?.result ?? prepared?.base,conversationTitle:room.title});
       const output=await execute(this.config,bot.driver,id,prompt,signal,(session,dshRequest)=>{
         this.store.change((next,emit)=>{
           signal.throwIfAborted();
@@ -889,10 +954,13 @@ export class HyperBot {
         }
         return;
       }
+      if (!terminal) entityContext(state,run,this.config.upstream);
       run.usage=record;
       if (!terminal && run.memoryRefs?.length) run.memoryReceipt=run.memoryRefs;
+      if (!terminal && run.entityRef) run.entityReceipt={...run.entityRef};
       if (terminal) run.generation.provider=record;
-      emit(run,terminal?'provider_completed':'provider_requested',{usage:record});
+      emit(run,terminal?'provider_completed':'provider_requested',{usage:record,
+        ...(!terminal&&run.entityReceipt?{entity:run.entityReceipt,grant:run.entityGrant.grant_id}:{})});
     });
   }
 
@@ -903,6 +971,7 @@ export class HyperBot {
       const proof=run.generation;
       const materials=authorizedMaterials(state,room.id,run.materialIds);
       memoryContext(state,run);
+      entityContext(state,run,this.config.upstream);
       approvedBase(state,room,run.base,run.materialIds);
       approvedProposal(state,room,run.proposalBase,run.materialIds);
       if (!hasGenerationReceipt(run) || proof.driverRevision!==DRIVERS[run.driver]?.revision ||
@@ -934,6 +1003,7 @@ export class HyperBot {
       const current=runOf(state,run.id);
       authorizedMaterials(state,run.conversation,current.materialIds);
       memoryContext(state,current);
+      entityContext(state,current,this.config.upstream);
       if (current.state!==(recovered?'recovering':'running')) throw new Problem(409,'本轮任务状态已变化。','state_conflict');
       delete current.generation;
       if (plan && botOf(state,run.botId,run.botRevision).status!=='enabled') {
@@ -1014,6 +1084,7 @@ export class HyperBot {
     const room=conversationOf(state,run.conversation);
     authorizedMaterials(state,room.id,run.materialIds);
     memoryContext(state,run);
+    entityContext(state,run,this.config.upstream);
     const expired=a.expiresAt<=Date.now();
     const matches=botOf(state,run.botId,run.botRevision).status==='enabled' && room.project===run.plan.project &&
       payloadHash(room.original??null)===payloadHash(run.plan.original??null) && planDigest(run.plan)===a.digest;
@@ -1088,6 +1159,7 @@ export class HyperBot {
           const job=runOf(state,id);
           if (job.state!=='saving' || job.endedAt) throw new Problem(410,'材料授权已结束。','material_ended');
           authorizedMaterials(state,job.conversation,job.materialIds);
+          entityContext(state,job,this.config.upstream);
           job.commitStarted??=at();
           if (step?.submission) job.plan.submission=step.submission;
           if (step?.sources) job.originalRegistered=step.sources.length;
@@ -1209,11 +1281,25 @@ export class HyperBot {
     const now=Date.now();
     const hasExpired=run=>run.state==='waiting_approval' && run.approval.expiresAt<=now;
     const state=this.store.read();
-    if (state.runs.some(hasExpired) || state.materials.some(file=>expiredMaterial(file,now))) {
+    const entityEnded=(state,run)=>{
+      if (!run.entityRef || !['queued','running','recovering','waiting_approval'].includes(run.state)) return false;
+      try {entityContext(state,run,this.config.upstream,now);return false;}
+      catch (error) {if (error!==entityUnavailable) throw error;return true;}
+    };
+    if (state.runs.some(hasExpired) || state.materials.some(file=>expiredMaterial(file,now)) ||
+        state.runs.some(run=>entityEnded(state,run))) {
       const abort=this.store.change((state,emit)=>{
         const abort=[];
         for (const file of state.materials.filter(file=>expiredMaterial(file,now))) {
           abort.push(...retireMaterial(this.store,state,emit,file,'expired',at()).abort);
+        }
+        for (const run of state.runs.filter(run=>entityEnded(state,run))) {
+          if (run.approval?.status==='pending') run.approval.status='revoked';
+          delete run.plan;
+          if (run.generation?.provider) run.usage=run.generation.provider;
+          delete run.generation;
+          this.store.transition(state,emit,run,'interrupted',{error:entityUnavailable.message});
+          abort.push(run.id);
         }
         for (const run of state.runs.filter(hasExpired)) {
           run.approval.status='revoked';

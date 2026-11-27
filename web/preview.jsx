@@ -299,7 +299,7 @@ async function download(id,kind) {
 }
 
 export function Preview({room,kind,tab,setTab,artifact,chosen,pending,draftProposal,setChosen,sourceId,setSourceId,citation,openSource,memoryRun,
-  onClose,onRevise,onSelectFiles,attachments,canRevise,addingMaterials,notify,small,closing,online,refresh,materialRetention,onImportProject,onOriginalDraft}) {
+  onClose,onRevise,onSelectFiles,attachments,canRevise,addingMaterials,notify,small,closing,online,refresh,materialRetention,onImportProject,onOriginalDraft,entity}) {
   const isProposal=chosen==='proposal'&&!!pending;
   const isRevision=chosen==='revision'&&!!draftProposal;
   const result=isProposal?pending:isRevision?draftProposal.result:artifact?.result;
@@ -368,9 +368,10 @@ export function Preview({room,kind,tab,setTab,artifact,chosen,pending,draftPropo
 
   return <aside className={'preview '+(closing?'sheet-out':'sheet-open')} id="right-preview" aria-label="会话预览" ref={preview}
     role={small?'dialog':undefined} aria-modal={small||undefined}>
-    <header className="preview-head"><div><PanelRight size={19}/><h2>预览</h2></div>
-      <button className="icon-button" onClick={()=>onClose()} aria-label="关闭预览"><X size={18}/></button>
+    <header className="preview-head"><div><PanelRight size={19}/><h2>{entity?'档案':'预览'}</h2></div>
+      <button className="icon-button" onClick={()=>onClose()} aria-label={entity?'关闭档案面板':'关闭预览'}><X size={18}/></button>
     </header>
+    {entity?<div className="preview-content" ref={sheet}>{entity}</div>:<>
     <div className="tabs">
       <div className="preview-tablist" role="tablist" aria-label="预览内容" onKeyDown={key}>
         {tabs.map(([id,label,count])=><button key={id} id={'tab-'+id} type="button" role="tab" data-id={id}
@@ -419,7 +420,7 @@ export function Preview({room,kind,tab,setTab,artifact,chosen,pending,draftPropo
         <button className="text-button source-export" disabled={exporting} onClick={()=>setExportId(artifact.id)}
           aria-label="导出选项" aria-haspopup="dialog" title="导出稿件与来源"><ChevronDown size={16}/></button>
       </div>:null}
-    </footer>
+    </footer></>}
     {exportChoice&&<ExportOptions key={exportChoice.id} artifact={exportChoice} onClose={()=>setExportId(null)} onSelect={exportNow}/>}
   </aside>;
 }

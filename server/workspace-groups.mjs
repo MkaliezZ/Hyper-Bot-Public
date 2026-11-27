@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdir } from 'node:fs/promises';
+import { lstat, mkdir, rm, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { Problem, id } from './contracts.mjs';
+import {bindFolder,binding,canonicalFolder,overlaps} from './group-files.mjs';
+import { Problem, id, botKey } from './contracts.mjs';
 import { HyperBot } from './application.mjs';
 import { Store } from './store.mjs';
 import { Workbench } from './workbench.mjs';
@@ -10,7 +11,7 @@ import { workspaceLock } from './workspace-lock.mjs';
 
 export const personalWorkspace = Object.freeze({id:'personal',name:'个人工作区'});
 export const workspaceName = z.string().trim().min(1).max(40).regex(/^[^\p{Cc}]+$/u);
-const input = z.strictObject({name:workspaceName});
+const input = z.strictObject({name:workspaceName,folder:z.string().min(1).optional(),bots:z.array(botKey).min(1).max(100).optional()});
 const normalizedName = name => name.normalize('NFKC').toLocaleLowerCase('zh-CN');
 
 export function savedGroups(state) {
@@ -28,20 +29,53 @@ export class WorkspaceGroups {
   }
 
   list() {
-    return [personalWorkspace,...savedGroups(this.primary.store.read())];
+    return [personalWorkspace,...savedGroups(this.primary.store.read()).map(group=>({...group,chat:true}))];
+  }
+
+  folderQueue=Promise.resolve();
+  claimed=new Map();
+
+  async attach(host,value){
+    const op=this.folderQueue.then(async()=>{
+      const folder=await canonicalFolder(value);
+      if(overlaps(folder,await realpath(this.config.data)))throw new Problem(409,'群组文件夹需要独立于应用数据目录。');
+      for(const [id,other] of this.claimed)if(id!==host.group.id&&overlaps(folder,other))throw new Problem(409,'群组文件夹不能相同或互相包含。');
+      for(const group of this.list().filter(g=>g.id!=='personal'&&g.id!==host.group.id)){
+        const other=await binding(await this.get(group.id));
+        if(other&&overlaps(folder,other.folder))throw new Problem(409,'群组文件夹不能相同或互相包含。');
+      }
+      const attached=await bindFolder(host,folder);
+      this.claimed.set(host.group.id,folder);
+      return attached;
+    });
+    this.folderQueue=op.catch(()=>{});
+    return op;
   }
 
   create(raw) {
-    const {name}=input.parse(raw);
+    const {name,folder,bots}=input.parse(raw);
+    if(Boolean(folder)!==Boolean(bots))throw new Problem(422,'请填写群组名、选择成员和文件夹。');
+    if(bots?.some(id=>!this.primary.app.index().bots.some(bot=>bot.id===id&&bot.status==='enabled')))throw new Problem(422,'有 Bot 已不可用。');
     const key=normalizedName(name);
     if (key===normalizedName(personalWorkspace.name)) {
       throw new Problem(409,'此工作区名称已在使用。','workspace_name');
     }
     const existing=this.list().find(item=>normalizedName(item.name)===key);
+    if (folder&&(existing||this.creating.has(key)))throw new Problem(409,'群组名称已在使用。');
     if (existing) return existing;
     if (!this.creating.has(key)) {
-      const group={id:randomUUID(),name};
-      this.creating.set(key,this.initialize(group,true).then(()=>{
+      const group={id:randomUUID(),name,chat:true};
+      this.creating.set(key,this.initialize(group,true).then(async host=>{
+        try{
+          if(folder){for(const botId of new Set(bots))host.app.installBot({botId});await this.attach(host,folder);}
+        }catch(error){
+          this.hosts.delete(group.id);
+          try{await host.app.shutdown();}finally{host.store.close();await host.release();}
+          const parent=await realpath(path.join(this.config.data,'groups'));
+          const directory=await realpath(host.app.config.data);
+          if(path.dirname(directory)===parent&&path.basename(directory)===group.id)await rm(directory,{recursive:true,force:true});
+          throw error;
+        }
         this.primary.store.change(state=>{(state.workspaceGroups??=[]).push(group);});
         return group;
       }).finally(()=>this.creating.delete(key)));
@@ -100,7 +134,7 @@ export class WorkspaceGroups {
           state.installedBots=[];
         });
       }
-      const config=Object.assign(Object.create(this.config),{data,allowOriginalWorkbench:false,teachingAccess:'trial'});
+      const config=Object.assign(Object.create(this.config),{data,teachingAccess:'trial',allowOriginalWorkbench:false,allowEntity:false});
       app=new HyperBot(store,config,this.workbenchFactory?.(config) ?? new Workbench(config));
       await app.boot();
       return {app,store,group,release};

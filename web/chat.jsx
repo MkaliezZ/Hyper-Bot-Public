@@ -7,6 +7,7 @@ import { BotMark } from './components.jsx';
 import { ConversationHandoff } from './conversation-handoff.jsx';
 import { PasteMaterial } from './paste-material.jsx';
 import { MemoryEditor } from './workspace-memory.jsx';
+import { EntityPanel } from './entity-archive.jsx';
 
 const live=new Set(['queued','running','recovering','waiting_approval','saving','stopping']);
 const recoverLabels={reconciled:'已核对保存回执',required:'写入结果待核对'};
@@ -78,7 +79,8 @@ function ApprovalCard({run,room,onDecide,onPreview,onReturn,online}) {
   </section>;
 }
 
-function ThreadTurn({run,bot,room,artifact,online,onSource,onArtifact,onPreview,onDecision,onReturn,onStop,onRecover,onRetry,onSaveMemory,onMemoryReceipt}) {
+function ThreadTurn({run,bot,room,artifact,online,onSource,onArtifact,onPreview,onDecision,onReturn,onStop,onRecover,onRetry,
+  onSaveMemory,onMemoryReceipt,onArchive}) {
   const files=run.endedAt?[]:run.materialIds.map(id=>room.materials.find(file=>file.id===id&&!file.endedAt)).filter(Boolean);
   const firstEvidence=(artifact?.result?.segments?.[0] ?? artifact?.result?.points?.[0])?.evidence?.[0];
   const cited=room.materials.find(file=>file.id===firstEvidence?.material);
@@ -116,7 +118,7 @@ function ThreadTurn({run,bot,room,artifact,online,onSource,onArtifact,onPreview,
       </div>
     </article>
     <article className="message reply task-anchor" id={'task-'+run.id} tabIndex={-1} aria-label={'任务 '+run.id.slice(0,8)}>
-      <BotMark kind={bot.kind}/>
+      <BotMark bot={bot}/>
       <div className="reply-content">
         <div className="byline"><strong>{bot.name}</strong><time dateTime={run.updatedAt}>{clock(run.updatedAt)}</time>
           {(!artifact||run.reconciled)&&<Status run={run}/>}</div>
@@ -126,6 +128,11 @@ function ThreadTurn({run,bot,room,artifact,online,onSource,onArtifact,onPreview,
             <FileText size={13}/>{cited.name}</button>
         </blockquote>}
         {artifact&&<ResultLink kind={bot.kind} artifact={artifact} onClick={()=>onArtifact(artifact.id)}/>}
+        {onArchive&&artifact?.receipt&&bot.kind==='script'&&run.approval?.status==='accepted'&&<button type="button"
+          className="text-button" disabled={!online} onClick={()=>onArchive({kind:'archive',artifact:artifact.id})}>
+          <BookOpen size={15}/>存入档案</button>}
+        {run.entityReceipt&&<a className="text-button" href={'#entity/'+run.entityReceipt.claim_id}>
+          <BookOpen size={15}/>本轮引用档案 v{run.entityReceipt.version}</a>}
         {run.memoryReceipt?.length>0&&<button type="button" className="text-button memory-receipt-link" onClick={()=>onMemoryReceipt(run.id)}>
           <Link2 size={15}/>本轮发送 {run.memoryReceipt.length} 条记忆</button>}
         {run.state==='waiting_approval'&&<ApprovalCard run={run} room={room} online={online}
@@ -175,6 +182,11 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
   const [memoryBusy,setMemoryBusy]=useState(false);
   const [memorySource,setMemorySource]=useState(null);
   const [memoryRun,setMemoryRun]=useState(null);
+  const [entityPanel,setEntityPanel]=useState(null);
+  const [entityPick,setEntityPick]=useState(null);
+  const entityEnabled=workspace.entityArchive&&!room.original&&!room.simulation;
+  const savedEntity=room.selectedEntity?.ref.claim_id===draft.entityRef?.claim_id?room.selectedEntity:null;
+  const entitySelection=savedEntity||(entityPick?.ref.claim_id===draft.entityRef?.claim_id?entityPick:null);
   const busy=addingMaterials||!!submission&&!retrying;
   useEffect(()=>()=>{void drafts.flush(room.id);},[drafts,room.id]);
   const [formError,setFormError]=useState('');
@@ -193,6 +205,7 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
     if(!requestedArtifact&&!requestedSource)return;
     if(requestedArtifact)setChosen(requestedArtifact);
     if(requestedSource)setSelectedSource(requestedSource);
+    setEntityPanel(null);
     setCitation(null);
     setTab(requestedSource?'materials':bot.kind);
     setPreviewOpen(true);
@@ -250,6 +263,7 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
     if(restoreOpener&&document.activeElement!==target)toggle.current?.focus({preventScroll:true});
   },[previewOpen]);
   function show(tabName, focus=small, nextCitation=null) {
+    setEntityPanel(null);
     clearTimeout(closeTimer.current);setPreviewClosing(false);
     closeFocus.current=null;
     const opener=document.activeElement;
@@ -265,8 +279,19 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
       panel?.querySelector('[role="tab"][aria-selected="true"]')?.focus({preventScroll:true});
     });
   }
+  function openEntity(mode) {
+    show(tab,true);
+    setEntityPanel(mode);
+  }
   function closePreview(focus=true) {
     if(previewClosing)return;
+    if(entityPanel) {
+      setEntityPanel(null);
+      if(!small) {
+        requestAnimationFrame(()=>(focus?origin.current:composer.current)?.focus({preventScroll:true}));
+        return;
+      }
+    }
     clearTimeout(closeTimer.current);
     const finish=()=>{
       closeFocus.current=focus?'opener':'composer';
@@ -277,13 +302,19 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
     else {setPreviewClosing(true);closeTimer.current=setTimeout(finish,120);}
   }
   useEffect(()=>{
-    if (!small||!previewOpen) return;
+    if ((!small&&!entityPanel)||!previewOpen) return;
     const key=event=>{if(event.key==='Escape'&&!document.querySelector('dialog[open]'))closePreview();};
     window.addEventListener('keydown',key);
     return ()=>window.removeEventListener('keydown',key);
-  },[small,previewOpen,previewClosing]);
+  },[small,previewOpen,previewClosing,entityPanel]);
 
   function change(next) {setFormError('');drafts.edit(room,next);}
+  function chooseEntity(record) {
+    const {claim_id,version}=record.ref;
+    setEntityPick(record);
+    change(current=>({...current,entityRef:{claim_id,version}}));
+    closePreview(false);
+  }
   function pick(id,exact,returnTo) {
     setSelectedSource(id);
     show('materials',!!exact||small,exact?{source:id,text:exact,returnTo}:null);
@@ -474,7 +505,7 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
     <main className="chat" inert={!visibleChat} aria-label={bot.name+' 会话'}>
       <span className="sr" role="status">{last?(last.reconciled?recoverLabels.reconciled:runPhase(last)):''}</span>
       <header className="chat-head">
-        {navButton}<BotMark kind={bot.kind} className="large"/>
+        {navButton}<BotMark bot={bot} className="large"/>
         <div className="chat-ident"><h1>{bot.name}</h1><p>{workspace.workspace.name}</p></div>
         <ConversationMenu room={room} bot={bot} workspace={workspace} onNew={onNew} online={online}/>
         <button ref={toggle} className="preview-toggle" aria-expanded={previewOpen} aria-controls="right-preview"
@@ -494,13 +525,14 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
       <div className={'thread-scroll'+(earlierAbove?' earlier-above':'')} id="message-feed" aria-label="消息记录" ref={feed} onScroll={scroll}>
         <div className="thread">
           {room.runs.length===0&&<article className="message reply first-message">
-            <BotMark kind={bot.kind}/><div><div className="byline"><strong>{bot.name}</strong></div>
+            <BotMark bot={bot}/><div><div className="byline"><strong>{bot.name}</strong></div>
               <p>{room.continuedFrom?'已带入所选材料。告诉我接下来要做什么。':bot.kind==='script'?'把素材和想拍的内容发给我。分镜写好后，可以在右侧读稿并确认保存。':'上传两份或以上授权材料，在这里说明要归纳的主题。'}</p></div>
           </article>}
           {room.runs.map(run=><ThreadTurn key={run.id} run={run} bot={bot} room={room} online={online}
             artifact={room.artifacts.find(a=>a.run===run.id)} onSource={pick} onArtifact={openArtifact}
             onPreview={reviewProposal} onDecision={decision} onReturn={returnForRevision} onStop={stop}
-            onRecover={recover} onRetry={retry} onSaveMemory={setMemorySource} onMemoryReceipt={openMemory}/>)}
+            onRecover={recover} onRetry={retry} onSaveMemory={setMemorySource} onMemoryReceipt={openMemory}
+            onArchive={entityEnabled?openEntity:null}/>)}
         </div>
       </div>
       <footer className="compose-wrap">
@@ -528,6 +560,14 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
             <button aria-label={'移除 '+file.name} type="button" disabled={addingMaterials}
               onClick={()=>change({...draft,attachments:draft.attachments.filter(x=>x!==file.id)})}><X size={14}/></button>
           </span>)}</div>}
+          {draft.entityRef&&<div className="composer-files" role="group" aria-label="本轮档案引用"><span>
+            <button type="button" onClick={()=>openEntity({kind:'pick'})}>
+              <BookOpen size={14}/><span className="composer-file-name">
+                {entitySelection?.title??'档案记录'} · 档案 v{draft.entityRef.version}</span></button>
+            <button type="button" aria-label="移除档案引用" disabled={busy||!!submission} onClick={()=>{
+              const {entityRef,...fields}=draft;change(fields);
+            }}><X size={14}/></button>
+          </span>{entitySelection?.reason&&<small className="form-error">{entitySelection.reason}</small>}</div>}
           <label htmlFor="message" className="sr">给{bot.name}发消息</label>
           <textarea id="message" rows={1} ref={composer} maxLength={8000} value={draft.text}
             aria-describedby={hasSource?'draft-source-version':undefined}
@@ -554,6 +594,9 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
                 }}><ClipboardPaste size={16}/>粘贴文字</button>
               {(room.materials.length>0||room.original)&&<button type="button" className="text-button materials-action"
                 onClick={()=>show('materials')}>{materialSummary}<ChevronRight size={13}/></button>}
+              {entityEnabled&&<button type="button" className="text-button"
+                disabled={!online||busy||!!submission||bot.status!=='enabled'} onClick={()=>openEntity({kind:'pick'})}>
+                <BookOpen size={16}/>引用档案</button>}
             </div>
             <div className="compose-end"><kbd>Enter</kbd>
               <button type="submit" className="send" disabled={busy||memoryBusy||!!submission||ownLive||!!block||!!local?.issue||
@@ -601,6 +644,8 @@ export function Chat({room,bot,workspace,drafts,navButton,refresh,notify,request
         }}/>}
     </main>
     {previewOpen&&<Preview room={room} kind={bot.kind} tab={tab} artifact={selected}
+      entity={entityPanel&&<EntityPanel mode={entityPanel} version={workspace.version} online={online}
+        onChoose={chooseEntity} onClose={closePreview} onSaved={()=>{closePreview();notify('已存入档案。');void refresh();}}/>}
       setTab={next=>{setCitation(null);if(next!=='memory')setMemoryRun(null);setTab(next);}}
       memoryRun={memoryRun} chosen={current} pending={proposal} draftProposal={draftProposal} setChosen={setChosen}
       sourceId={selectedSource} setSourceId={id=>{setSelectedSource(id);setCitation(null);}}

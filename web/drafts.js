@@ -2,7 +2,7 @@ import { api } from './client.js';
 
 const emptyDraft={text:'',attachments:[],base:null};
 const key = draft => JSON.stringify([draft.text,draft.attachments,draft.base??null,draft.originalBase??null,
-  draft.proposalBase??null,draft.retryOf??null]);
+  draft.proposalBase??null,draft.retryOf??null,draft.entityRef?.claim_id??null,draft.entityRef?.version??null]);
 const saveOptions = () => ({keepalive:true,signal:AbortSignal.timeout(10000)});
 const readOptions = () => ({signal:AbortSignal.timeout(10000)});
 

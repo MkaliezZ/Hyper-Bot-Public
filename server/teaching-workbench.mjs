@@ -1,5 +1,6 @@
 import https from 'node:https';
 import http from 'node:http';
+import { binding as groupFolder, saveGroupFile } from './group-files.mjs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -17,7 +18,7 @@ const resourceId=value=>id.parse(value);
 const loginInput=z.strictObject({password:z.string().min(1).max(100)});
 const tracks=z.enum(['k12','toefl','ielts']);
 
-async function business({request,response,url,bot,action,json,auth,data,input}) {
+async function business({request,response,url,bot,action,json,auth,data,input,onWrite}) {
   const area=bot.id.slice('teaching-'.length);
   const students=bot.target==='students';
   if(request.method==='GET'&&action==='records') {
@@ -46,6 +47,7 @@ async function business({request,response,url,bot,action,json,auth,data,input}) 
   if(area==='learning'&&body.action==='learning')route='/students/'+id.parse(body.record)+'/learning-links';
   if(!route)throw missing();
   const output=await data('POST',route,{auth,key:body.key,body:body.input});
+  onWrite(body.key);
   return json(response,output);
 }
 
@@ -151,7 +153,14 @@ export function teachingWorkbench(env=process.env,trialPassword,bridgeKey) {
       return json(response,{account:context.account});
     }
     if(['operations','students'].includes(target)){
-      return business({request,response,url,bot,action,json,auth,data,input});
+      let payload,writeKey;
+      await business({request,response,url,bot,action,json:(_res,value)=>{payload=value;},onWrite:key=>{writeKey=key;},auth,data,input});
+      if(writeKey&&host.group.id!=='personal'&&await groupFolder(host)){
+        const pending=(host.store.read().groupMessages??[]).findLast(m=>m.room===room.id&&m.status==='input');
+        const file=await saveGroupFile(host,bot.name+'.json',Buffer.from(JSON.stringify(payload,null,2)),{key:'record/'+writeKey});
+        if(pending)host.store.change(state=>Object.assign(state.groupMessages.find(m=>m.id===pending.id),{status:'done',finishedAt:new Date().toISOString(),reply:'已保存'+bot.name+'。',outputs:[file.id]}));
+      }
+      return json(response,payload);
     }
     const owned=new Set(room.teachingTaskIds??[]);
     if(target==='bot'&&action==='connection'&&!post) {

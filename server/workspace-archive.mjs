@@ -10,6 +10,7 @@ import { root } from './config.mjs';
 import { workspaceLock } from './workspace-lock.mjs';
 import { assertArchiveSafe, hasUnclearedMaterials } from './materials.mjs';
 import { id } from './contracts.mjs';
+import {groupFile,validatedName,binding} from './group-files.mjs';
 
 const database = 'hyper-bot.sqlite';
 const format = 'hyper-bot-workspace/1';
@@ -35,7 +36,7 @@ function relativeEntry(key) {
   const parts = key.split('/');
   if (!parts.every(part => part && part !== '.' && part !== '..' && !/[\\:\u0000-\u001f]/.test(part))) return false;
   const entry=parts[0]==='groups'&&id.safeParse(parts[1]).success?parts.slice(2).join('/'):key;
-  return entry===database || entry===trialDB || knownWorkbenchPaths.some(prefix=>entry.startsWith(prefix+'/'));
+  return (parts[0]==='groups'&&id.safeParse(parts[1]).success&&parts.length===4&&parts[2]==='group-documents') || entry===database || entry===trialDB || knownWorkbenchPaths.some(prefix=>entry.startsWith(prefix+'/'));
 }
 const fileEntry = z.strictObject({ path:z.string().refine(relativeEntry), bytes:z.number().int().nonnegative(), sha256:z.string().regex(/^[a-f0-9]{64}$/) });
 const manifestFields = {
@@ -143,6 +144,26 @@ async function snapshotDatabase(source,target,relative) {
   return state;
 }
 
+async function archiveDocuments(source,target,prefix,state){
+  const host={app:{config:{data:local(source,prefix)}},store:{read:()=>state}};
+  const attached=await binding(host);
+  const docs=state.groupFiles??[];
+  if(!docs.length)return [];
+  const folder=local(target,prefix+'group-documents');await mkdir(folder,{mode:0o700});
+  const entries=[];
+  for(const file of docs){
+    const name=validatedName(file);
+    const orig=attached?(await groupFile(host,file.id)).target:local(source,prefix+'group-documents/'+name);
+    const info=await lstat(orig);
+    if(!info.isFile()||info.isSymbolicLink())throw new Error('群组文件不可用于备份。');
+    const sha256=await hashWorkspaceFile(orig);
+    const dest=path.join(folder,name);
+    await copyFile(orig,dest,constants.COPYFILE_EXCL);
+    if(await hashWorkspaceFile(dest)!==sha256)throw new Error('群组文件在备份期间发生变化。');
+    entries.push({path:prefix+'group-documents/'+name,bytes:info.size,sha256});
+  }
+  return entries;
+}
 async function archiveFiles(source,prefix,entries) {
   const trial=await existing(local(source,prefix+'teaching-trial'));
   if(trial&&(!trial.isDirectory()||trial.isSymbolicLink()))throw new Error('试用教培目录无效。');
@@ -176,7 +197,8 @@ export async function backupWorkspace(source, target, {retainUntil} = {}) {
     for (const prefix of groups) {
       const releaseGroup=await workspaceLock(local(source,prefix.slice(0,-1)));
       try {
-        await snapshotDatabase(source,target,prefix+database);
+        const groupState=await snapshotDatabase(source,target,prefix+database);
+        assets.push(...await archiveDocuments(source,target,prefix,groupState));
         await tree(target,prefix+database,entries);
         const groupAssets=[];
         await checkpointTrial(source,prefix);
@@ -210,6 +232,7 @@ export async function verifyWorkspace(archive) {
   let uncleared=hasUnclearedMaterials(state);
   for (const prefix of groups) {
     await tree(source,prefix+database,present);
+    await tree(source,prefix+'group-documents',present);
     await archiveFiles(source,prefix,present);
     const {db:groupDB,state:groupState}=checkedDatabase(local(source,prefix+database));
     groupDB.close();

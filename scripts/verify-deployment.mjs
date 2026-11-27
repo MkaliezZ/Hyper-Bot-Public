@@ -47,6 +47,11 @@ async function verify() {
   if(workspace.appVersion!==packageInfo.version){
     throw new Error('运行中的后端版本为 '+(workspace.appVersion??'旧版')+'，预期为 '+packageInfo.version+'。请从更新后的目录重新启动。');
   }
+  if(workspace.groupChats!==true)throw new Error('运行中的后端缺少群组功能。请从更新后的目录重新启动。');
+  const groups=await request(new URL('/api/v1/workspaces',origin)).then(response=>response.json());
+  if(!Array.isArray(groups)||!groups.some(group=>group.id==='personal')){
+    throw new Error('工作区列表未通过校验。');
+  }
   const media=workspace.bots?.filter(bot=>bot.kind==='workbench'&&bot.status==='enabled')??[];
   if(media.length!==20){
     throw new Error('工作区接口返回 '+media.length+' 个自媒体专项 Bot，预期为 20 个。请检查当前运行的后端源码。');
@@ -58,7 +63,7 @@ async function verify() {
   if(!workspace.localDependencies?.checks?.['teaching-lessons']?.ok){
     throw new Error('课件依赖未就绪。请运行 npm run setup:teaching 并重新启动服务。');
   }
-  console.log('已验证 '+origin.origin+' 运行 '+packageInfo.version+'，首页、JS 和 CSS 与本地构建一致。目录含 20 个自媒体专项 Bot 和 10 个英语教培 Bot，课件依赖已就绪。');
+  console.log('已验证 '+origin.origin+' 运行 '+packageInfo.version+'，首页、JS 和 CSS 与本地构建一致。目录含 20 个自媒体专项 Bot 和 10 个英语教培 Bot，群组入口和课件依赖已就绪。');
 }
 
 try {

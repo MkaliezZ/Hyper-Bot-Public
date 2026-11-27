@@ -7,11 +7,13 @@ import { WorkspaceDrafts } from './drafts.js';
 import { Directory, Manage, NewConversation } from './pages.jsx';
 import { History, Library } from './history.jsx';
 import { Recovery } from './recovery.jsx';
+import {GroupChat} from './group-chat.jsx';
 import { WorkspaceNav } from './workspace-nav.jsx';
 import { WorkspaceMemory } from './workspace-memory.jsx';
 import { TeachingConversation } from './teaching-conversation.jsx';
 import { SpecialistConversation } from './specialist-conversation.jsx';
 import { TeachingAssistant } from './teaching-assistant.jsx';
+import { EntityArchive } from './entity-archive.jsx';
 import './theme.css';
 
 import { ActiveRunLink } from './components.jsx';
@@ -146,7 +148,7 @@ function App() {
   useLayoutEffect(()=>drafts.observe(room,{visible:true}),[drafts,room]);
   useEffect(()=>drafts.setOnline(online),[drafts,online]);
   useEffect(()=>{
-    if (['history','library','recovery','manage','memory'].includes(page)) document.querySelector('.route-page')?.scrollTo({top:0});
+    if (['history','library','recovery','manage','memory','entity'].includes(page)) document.querySelector('.route-page')?.scrollTo({top:0});
   },[page,identifier]);
   useEffect(()=>{
     if(!toast)return;
@@ -161,7 +163,7 @@ function App() {
   useEffect(()=>{
     if(!mobileNav)return;
     const nav=document.getElementById('workspace-nav');
-    const focusable=()=>[...nav.querySelectorAll('a[href],button:not([disabled]),summary')].filter(el=>el.getClientRects().length);
+    const focusable=()=>[...nav.querySelectorAll('a[href],input:not([disabled]),button:not([disabled]),summary')].filter(el=>el.getClientRects().length);
     focusable()[0]?.focus();
     const end=event=>{
       if(event.defaultPrevented||event.target.closest?.('dialog[open]'))return;
@@ -190,6 +192,14 @@ function App() {
     if(matchMedia('(max-width: 1000px)').matches)setMobileNav(true);
     else setRailCollapsed(false);
   }
+  function searchConversations(query) {
+    const target=browseHref('history',{q:query});
+    if(mobileNav) {
+      navDestination.current=target.slice(1);
+      setMobileNav(false);
+    }
+    location.hash=target;
+  }
   function beginConversation(bot) {
     setMobileNav(false);
     setNewChat(bot);
@@ -214,9 +224,10 @@ function App() {
   },[mobileNav,locationKey,ready]);
   const active=workspace?.active;
   const owner=active&&workspace.conversations.find(room=>room.id===active.conversation)?.title;
-  return <div className={'app-shell'+(railCollapsed?' nav-collapsed':'')+(roomId?' is-chat':'')}>
+  return <div className={'app-shell'+(railCollapsed?' nav-collapsed':'')+(roomId||page==='group'?' is-chat':'')}>
     {workspace&&<WorkspaceNav workspace={workspace} groups={groups.length?groups:[workspace.workspace]}
       route={page} roomId={roomId} open={mobileNav} online={online} onNew={beginConversation}
+      onSearch={searchConversations} searchQuery={filters.q}
       onCollapse={()=>setRailCollapsed(true)} onClose={closeNav} onNavigate={chooseNav}/>}
     {mobileNav&&<button type="button" tabIndex={-1} className="nav-scrim" aria-label="关闭导航" onClick={closeNav}/>}
     <div className="page-area" ref={pageArea} inert={mobileNav}>
@@ -224,7 +235,7 @@ function App() {
         <span role="status"><span className="status-in" key={connectionMessage}>{connectionMessage}</span></span>
         <button className="text-button" type="button" ref={reconnectTrigger} aria-disabled={reconnecting} onClick={reconnectService}>重连</button>
       </div>}
-      {workspace&&ready&&bot ? <>
+      {workspace&&page==='group'&&currentWorkspace!=='personal'?<GroupChat workspace={workspace} navButton={navButton}/>:workspace&&ready&&bot ? <>
         {active&&active.conversation!==roomId&&<div className="chat-run-bar">
           <span title={owner}>{owner||'当前任务'}</span><ActiveRunLink run={active} owner={owner}/>
         </div>}
@@ -249,6 +260,8 @@ function App() {
                 :page==='history'?<History workspace={workspace} filters={filters} onChange={changeFilters}/>
                 :page==='recovery'?<Recovery workspace={workspace} selected={identifier} online={online} refresh={refresh} notify={setToast}/>
                 :page==='memory'?<WorkspaceMemory workspace={workspace} online={online} notify={setToast}/>
+                :page==='entity'&&workspace.entityArchive?<EntityArchive version={workspace.version} selected={identifier}
+                  online={online} notify={setToast} refresh={refresh}/>
                 :<Directory workspace={workspace} selected={identifier} home={page==='home'} refresh={refresh} online={online}/>}
             </div>}
         </main>}

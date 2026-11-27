@@ -53,11 +53,20 @@ function EmptyList({title,filtered,onChange}) {
 }
 
 export function History({workspace,filters,onChange}) {
-  const words=terms(filters.q);
-  const filtered=!!(filters.bot||words.length);
+  const q=filters.q.trim();
+  const [result,setResult]=useState(null);
+  useEffect(()=>{
+    if(!q)return;
+    const controller=new AbortController();
+    api('/conversation-search?q='+encodeURIComponent(q),undefined,{signal:controller.signal}).then(ids=>{
+      if(!controller.signal.aborted)setResult({q,ids:new Set(ids)});
+    }).catch(problem=>{if(!controller.signal.aborted)setResult({q,error:problem.message});});
+    return ()=>controller.abort();
+  },[q,workspace.version]);
+  const filtered=!!(filters.bot||q);
   const visible=workspace.conversations.filter(room=>(!filters.bot||room.botId===filters.bot)&&
     (!filters.revision||String(room.revision)===filters.revision)&&
-    matches(words,room.title,room.projectTitle,describeBot(workspace,room.botId,room.revision)));
+    (!q||(result?.q===q&&result.ids?.has(room.id))));
   return <>
     <div className="section-head"><div><h1>会话记录</h1><p>按 Bot 找回以前的任务与草稿。</p></div>
       <a className="button" href="#bots"><ArrowRight size={16}/>Bot广场</a></div>
@@ -66,12 +75,14 @@ export function History({workspace,filters,onChange}) {
       <span>{describeBot(workspace,filters.bot,Number(filters.revision))}</span>
       <button type="button" className="text-button" onClick={()=>onChange({...filters,revision:''})}>查看所有版本</button>
     </div>}
-    {visible.length?<div className="browse-results">
+    {q&&result?.q===q&&result.error?<p className="form-error" role="alert">{result.error}</p>
+      :q&&result?.q!==q?<p className="muted" role="status">正在搜索会话…</p>
+      :visible.length?<div className="browse-results">
       <p className="browse-count" role="status">{visible.length} 个会话</p>
       <div className="history-list">{visible.map(room=>{
         const bot=workspace.bots.find(item=>item.id===room.botId&&item.revision===room.revision);
         return <a className="page-row" href={'#chat/'+room.id} key={room.id}>
-          {bot?<BotMark kind={bot.kind}/>:<MessageSquare size={17}/>}
+          {bot?<BotMark bot={bot}/>:<MessageSquare size={17}/>}
           <span className="history-row-title"><strong>{room.title}</strong><small>{describeBot(workspace,room.botId,room.revision)}
             {room.projectTitle&&room.projectTitle!==room.title?' · '+room.projectTitle:''}</small></span>
           <time dateTime={room.updatedAt}>{day(room.updatedAt)} {clock(room.updatedAt)}</time><ChevronRight size={16}/>

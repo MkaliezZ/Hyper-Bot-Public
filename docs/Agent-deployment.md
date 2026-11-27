@@ -18,6 +18,7 @@ npm.cmd run setup:teaching -- python
 npm.cmd run build
 npm.cmd run doctor
 npm.cmd run test:teaching
+npm.cmd run test:group
 npm.cmd start
 ~~~
 
@@ -37,6 +38,7 @@ npm run setup:teaching -- python3.14
 npm run build
 npm run doctor
 npm run test:teaching
+npm run test:group
 npm start
 ~~~
 
@@ -52,7 +54,13 @@ npm start
 npm run verify:deployment -- http://127.0.0.1:4367
 ~~~
 
-该命令核对前后端的版本和实际提供的 HTML、JS、CSS，并验收工作区接口里的 20 个自媒体专项 Bot 和 10 个英语教培 Bot。新版「Bot广场」默认在「全部」展示 32 个内置 Bot，包括原有的自媒体口播和素材简报。如果静态文件不一致，检查终端是否继承了指向旧构建的 `HYPER_BOT_FRONTEND_ASSETS`。macOS 可在启动前执行 `unset HYPER_BOT_FRONTEND_ASSETS`，然后用启动输出的地址重新打开页面。
+该命令核对前后端的版本和实际提供的 HTML、JS、CSS，并验收工作区接口里的 20 个自媒体专项 Bot 和 10 个英语教培 Bot，以及群组服务。新版「Bot广场」默认在「全部」展示 32 个内置 Bot，包括原有的自媒体口播和素材简报。如果静态文件不一致，检查终端是否继承了指向旧构建的 `HYPER_BOT_FRONTEND_ASSETS`。macOS 可在启动前执行 `unset HYPER_BOT_FRONTEND_ASSETS`，然后用启动输出的地址重新打开页面。
+
+## 验收群组
+
+1. 启动后，打开侧栏「群组 → 新建群组」。填入群名并勾选 Bot。点击「选择文件夹」为群组选择一个已存在的本机目录。macOS 会打开系统目录选择窗口，建议从登录桌面的终端启动 Hyper Bot。选择窗口不可用时，可以输入绝对路径。
+2. 用 `@课上互动课件 简述你的功能。` 验证群聊。再上传一份合成 TXT 教材，选择「派发任务」并请同一个 Bot 生成课件。在右栏查看 HTML 和 PPTX，并检查选定目录下的「群组文档」里确实出现了这两份文件。普通追问使用 Hyper Bot 的 DeepSeek 凭据。
+3. 已有工作区仍可从「群组」列表打开。首次进入旧工作区时，按提示绑定目录，再到「Bot广场」添加成员。群组对话和文件分开保存。备份还原后，为恢复的群组选一个新目录即可重建文件副本。
 
 ## 验收英语教培
 

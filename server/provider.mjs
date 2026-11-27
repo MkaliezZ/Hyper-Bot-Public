@@ -140,10 +140,11 @@ export async function provider(config, signal, onComplete, onAttempt) {
       if (usage.requests >= 1) throw new Problem(429, '本轮模型请求已达到上限。', 'runtime_policy');
       signal.throwIfAborted();
       const anthropic = tail === '/v1/messages';
-      Object.assign(usage,{requests:1,protocol:anthropic?'messages':'chat-completions'});
+      const attempted={...usage,requests:1,protocol:anthropic?'messages':'chat-completions'};
+      onAttempt?.(attempted);
+      Object.assign(usage,attempted);
       admitted=true;
       error=null;
-      onAttempt?.({...usage});
       const headers = anthropic
         ? { 'x-api-key': config.key, 'anthropic-version': '2023-06-01' }
         : { Authorization: 'Bearer ' + config.key };

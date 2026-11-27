@@ -7,7 +7,7 @@ import { DSH_VERSION, HERMES_REVISION, root } from './config.mjs';
 import { relatedProjectVersions } from './history.mjs';
 import { activeMaterial, hidesArtifact, materialMetadata, materialVisibleIn, visibleArtifact } from './materials.mjs';
 import { currentMemory } from './workspace-memory.mjs';
-import { specialistBot } from './specialist-catalog.mjs';
+import { builtInCopy, specialistBot } from './specialist-catalog.mjs';
 
 export const at = () => new Date().toISOString();
 export const isLive = run => Object.hasOwn(ALLOWED, run.state);
@@ -40,12 +40,10 @@ async function initial() {
   }));
   const bots = [
     {id:'media',revision:1,kind:'script',driver:'dsh-web',driverRevision:DSH_VERSION,name:'自媒体口播',subtitle:'Self Media Workbench',
-      description:'根据已有选题和文字素材，写有时间码、画面建议和字幕的口播分镜。可以在同一项目续改。',
-      input:'授权的 TXT / Markdown，连同受众、方向和预估时长',output:'可预览、改版和导出的 Markdown 分镜稿',
+      ...builtInCopy.media,
       skills:['talking-script'], status:'enabled', createdAt:at(),qualification:'pinned-dev'},
     {id:'brief',revision:1,kind:'brief',driver:'hermes',driverRevision:HERMES_REVISION,name:'素材简报',subtitle:'文字材料',
-      description:'归纳证据、分歧与未确认的问题，从要点回到所引用的原文。',
-      input:'2–6 份授权的 TXT / Markdown',output:'带逐字引用的 Markdown 简报',skills:['material-brief'],
+      ...builtInCopy.brief,skills:['material-brief'],
       status:'enabled',createdAt:at(),qualification:'pinned-dev'}
   ];
   return { version:0, skills, bots, conversations:[], materials:[], runs:[],artifacts:[],
@@ -73,6 +71,9 @@ export class Store {
     this.saveState = this.db.prepare('INSERT INTO workspace(key,body) VALUES(1,?) ON CONFLICT(key) DO UPDATE SET body=excluded.body');
     this.addEvent = this.db.prepare('INSERT INTO events(run,seq,kind,created,data) VALUES(?,?,?,?,?)');
     this.events = this.db.prepare('SELECT seq, kind, created, data FROM events WHERE run=? AND seq>? ORDER BY seq LIMIT 512');
+    this.acceptedApproval = this.db.prepare(
+      "SELECT seq, created FROM events WHERE run=? AND kind='approval' AND json_extract(data,'$.decision')='accepted' "+
+      "AND json_extract(data,'$.digest')=? ORDER BY seq DESC LIMIT 1");
     this.writeChecks = this.db.prepare(`
       SELECT run,kind,MAX(created) AS checkedAt FROM events
       WHERE kind IN ('receipt_unresolved','workbench_effects_checked') GROUP BY run,kind
@@ -139,7 +140,8 @@ export class Store {
 }
 
 export function publicRun(run) {
-  const { plan, approval, materialIds, generation, accounting, followUpDraftStamp, memoryRefs, teachingEvidence, specialistInput, specialistFiles, ...info } = run;
+  const { plan, approval, materialIds, generation, accounting, followUpDraftStamp, memoryRefs,
+    entityActor, entityRef, entityGrant, teachingEvidence, specialistInput, specialistFiles, ...info } = run;
   const preview = run.state === 'waiting_approval' ? plan?.result : undefined;
   return {...info,materialIds,preview,
     ...(preview&&plan?.timing?{previewTiming:plan.timing}:{}),
@@ -202,7 +204,7 @@ export function roomView(state,id) {
   const last=runs.at(-1);
   // Offer a source without writing over any draft started during the task.
   const untouched=draftStamp && last?.followUpDraftStamp===draftStamp && !retry && !proposal &&
-    current.text==='' && current.attachments.length===0 && !current.base && !current.originalBase;
+    current.text==='' && current.attachments.length===0 && !current.base && !current.originalBase && !current.entityRef;
   const enabled=untouched && state.bots.some(bot=>bot.id===room.botId && bot.revision===room.revision && bot.status==='enabled');
   const source=enabled ? artifacts.find(record=>record.id===last.artifact &&
     record.project===room.project && !record.endedAt) : null;
