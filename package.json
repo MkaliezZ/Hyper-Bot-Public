@@ -14,6 +14,7 @@
     "desktop": "electron desktop/main.mjs",
     "check": "node --test test/contracts.test.mjs test/workspace-archive.test.mjs",
     "doctor": "node scripts/doctor.mjs",
+    "verify:deployment": "node scripts/verify-deployment.mjs",
     "test:integration": "node scripts/integration.mjs",
     "test:teaching": "node --test test/teaching-integration.test.mjs",
     "workspace": "node scripts/workspace.mjs",

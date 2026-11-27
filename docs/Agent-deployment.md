@@ -42,6 +42,18 @@ npm start
 
 在浏览器打开 [Hyper Bot](http://127.0.0.1:4367/)。这套步骤部署源码和本机浏览器入口。运行中的 `npm start` 进程提供服务。
 
+## 更新已有部署
+
+在现有的公库源码目录检查 `git remote get-url origin`，确认远端指向 [Hyper Bot 公库](https://github.com/MkaliezZ/Hyper-Bot-Public)。在 `main` 分支执行 `git pull --ff-only origin main`，再重复对应平台的依赖安装和构建步骤。退出之前启动的 Hyper Bot 进程，从更新后的源码目录执行启动命令，并使用它打印的地址。
+
+启动后另开终端，在同一个源码目录运行下列命令。Windows PowerShell 使用 `npm.cmd`。如果启动时显示另一个端口，传入那个地址。
+
+~~~sh
+npm run verify:deployment -- http://127.0.0.1:4367
+~~~
+
+该命令逐字节校验当前服务返回的首页、JS 和 CSS，再核对工作区接口里的十个教培 Bot。版本号或 HTTP 200 只能确认部分信息。如果静态文件不一致，检查终端是否继承了指向旧构建的 `HYPER_BOT_FRONTEND_ASSETS`。macOS 可在启动前执行 `unset HYPER_BOT_FRONTEND_ASSETS`，然后用启动输出的地址重新打开页面。
+
 ## 验收英语教培
 
 1. 在 `npm run doctor` 的 JSON 输出中确认 `teaching.ok` 和 `teaching.lessons.ok` 都为 true。运行 `npm run test:teaching`，检查课件生成、练习生成、教培记录和模型协议测试结果。
