@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseEnv } from 'node:util';
 import { agentRuntimeSettingsFile, HERMES_REVISION, root, WB_REVISION } from '../server/config.mjs';
@@ -25,10 +25,7 @@ function ffmpegDirectory() {
   const candidates=directories.filter(path.isAbsolute).flatMap(directory=>{
     if(explicit||!chocolatey||path.relative(path.join(chocolatey,'bin'),directory))return [directory];
     // Chocolatey's launchers cannot start in Workbench's extended-length Windows paths.
-    const tools=path.join(chocolatey,'lib','ffmpeg','tools');
-    if(!existsSync(tools))return [];
-    const builds=readdirSync(tools,{withFileTypes:true}).filter(entry=>entry.isDirectory()&&entry.name.startsWith('ffmpeg-'));
-    return [tools,path.join(tools,'bin'),...builds.map(entry=>path.join(tools,entry.name,'bin'))];
+    return ['ffmpeg','ffmpeg-full','ffmpeg-shared'].map(name=>path.join(chocolatey,'lib',name,'tools','ffmpeg','bin'));
   });
   for(const directory of candidates){
     const files=bins.map(bin=>path.join(directory,bin));
